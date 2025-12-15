@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "Inter", system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+* {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* @theme {
+  --spacing: 1px;
+  --color-bg: #232323;
+  --color-border: #393939;
+
+  --color-node-bg: #2c2c2c;
+  --color-node-border: #424242;
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+} */
+
+@layer base {
+}
