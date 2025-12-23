@@ -1,5 +1,5 @@
 import { authClient } from "@/auth/auth-client"
-import { getOrgsFn } from "@/fn"
+import { getOrgsFn, setOrgCreatorAsAdminFn } from "@/fn"
 import { useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 
@@ -8,14 +8,30 @@ export const CreateOrgModal = () => {
   const [orgName, setOrgName] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleCreateOrg = () => {
+  const handleCreateOrg = async () => {
     setIsLoading(true)
-    authClient.organization
-      .create({ name: orgName, slug: orgName.toLowerCase().replace(/ /g, "-") })
-      .then(() => {
-        navigate({ to: "/" })
+    try {
+      const result = await authClient.organization.create({
+        name: orgName,
+        slug: orgName.toLowerCase().replace(/ /g, "-"),
       })
-    setIsLoading(false)
+      // Set the creator as admin
+      if (result?.data?.id) {
+        try {
+          await setOrgCreatorAsAdminFn({
+            data: { organizationId: result.data.id },
+          })
+        } catch (adminError) {
+          console.error("Failed to set admin role:", adminError)
+          // Continue anyway - organization was created successfully
+        }
+      }
+      navigate({ to: "/" })
+    } catch (error) {
+      console.error("Failed to create organization:", error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (

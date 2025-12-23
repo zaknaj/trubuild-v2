@@ -1,5 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { getOrgMembersFn, inviteMemberFn, getInvitationsFn } from "@/fn"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import {
+  getOrgMembersFn,
+  inviteMemberFn,
+  getInvitationsFn,
+  getAllProjectInvitationsFn,
+  getAllPackageInvitationsFn,
+} from "@/fn"
 import { useState, FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,20 +26,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { UserPlus, Mail } from "lucide-react"
+import { UserPlus, Mail, FolderOpen, Package } from "lucide-react"
 
 export const Route = createFileRoute("/_app/settings")({
   component: RouteComponent,
   loader: async () => {
-    const [members, invitations] = await Promise.all([
-      getOrgMembersFn(),
-      getInvitationsFn(),
-    ])
-    return { members, invitations }
+    const [members, orgInvitations, projectInvitations, packageInvitations] =
+      await Promise.all([
+        getOrgMembersFn(),
+        getInvitationsFn(),
+        getAllProjectInvitationsFn(),
+        getAllPackageInvitationsFn(),
+      ])
+    return { members, orgInvitations, projectInvitations, packageInvitations }
   },
 })
 
-type Invitation = {
+type OrgInvitation = {
   id: string
   email: string
   role: string | null
@@ -43,8 +52,15 @@ type Invitation = {
 }
 
 function RouteComponent() {
-  const { members, invitations: initialInvitations } = Route.useLoaderData()
-  const [invitations, setInvitations] = useState<Invitation[]>(initialInvitations)
+  const {
+    members,
+    orgInvitations: initialOrgInvitations,
+    projectInvitations,
+    packageInvitations,
+  } = Route.useLoaderData()
+  const [invitations, setInvitations] = useState<OrgInvitation[]>(
+    initialOrgInvitations
+  )
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<"admin" | "owner" | "member">("member")
@@ -63,7 +79,7 @@ function RouteComponent() {
     setError(null)
 
     // Optimistically add to list and close drawer
-    const optimisticInvite: Invitation = {
+    const optimisticInvite: OrgInvitation = {
       id: `temp-${Date.now()}`,
       email: trimmedEmail,
       role,
@@ -147,10 +163,13 @@ function RouteComponent() {
         </div>
       </section>
 
-      {invitations.length > 0 && (
+      {(invitations.length > 0 ||
+        projectInvitations.length > 0 ||
+        packageInvitations.length > 0) && (
         <section>
           <h2 className="text-lg font-medium mb-4">Pending Invitations</h2>
           <div className="border rounded-lg divide-y">
+            {/* Organization invitations */}
             {invitations.map((inv) => (
               <div key={inv.id} className="flex items-center gap-3 p-3">
                 <div className="size-9 rounded-full bg-amber-100 flex items-center justify-center">
@@ -159,11 +178,69 @@ function RouteComponent() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{inv.email}</p>
                   <p className="text-sm text-muted-foreground">
-                    Invitation pending
+                    Organization invitation
                   </p>
                 </div>
                 <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
                   {inv.role || "member"}
+                </span>
+              </div>
+            ))}
+
+            {/* Project invitations */}
+            {projectInvitations.map((inv) => (
+              <div key={inv.id} className="flex items-center gap-3 p-3">
+                <div className="size-9 rounded-full bg-blue-100 flex items-center justify-center">
+                  <FolderOpen className="size-4 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{inv.email}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Project:{" "}
+                    <Link
+                      to="/project/$id"
+                      params={{ id: inv.projectId }}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {inv.projectName}
+                    </Link>
+                  </p>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
+                  {inv.role.replace("_", " ")}
+                </span>
+              </div>
+            ))}
+
+            {/* Package invitations */}
+            {packageInvitations.map((inv) => (
+              <div key={inv.id} className="flex items-center gap-3 p-3">
+                <div className="size-9 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Package className="size-4 text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{inv.email}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Package:{" "}
+                    <Link
+                      to="/package/$id"
+                      params={{ id: inv.packageId }}
+                      className="text-purple-600 hover:underline"
+                    >
+                      {inv.packageName}
+                    </Link>{" "}
+                    in{" "}
+                    <Link
+                      to="/project/$id"
+                      params={{ id: inv.projectId }}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {inv.projectName}
+                    </Link>
+                  </p>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
+                  {inv.role.replace("_", " ")}
                 </span>
               </div>
             ))}

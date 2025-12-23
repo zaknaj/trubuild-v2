@@ -4,6 +4,7 @@ import {
   getOrgsFn,
   getSession,
   setActiveOrgFn,
+  setOrgCreatorAsAdminFn,
 } from "@/fn"
 import {
   createFileRoute,
@@ -132,10 +133,21 @@ function RouteComponent() {
     setIsCreatingOrg(true)
     setCreateOrgError(null)
     try {
-      await authClient.organization.create({
+      const result = await authClient.organization.create({
         name: trimmedOrgName,
         slug: trimmedOrgName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       })
+      // Set the creator as admin
+      if (result?.data?.id) {
+        try {
+          await setOrgCreatorAsAdminFn({
+            data: { organizationId: result.data.id },
+          })
+        } catch (adminError) {
+          console.error("Failed to set admin role:", adminError)
+          // Continue anyway - organization was created successfully
+        }
+      }
       navigate({
         to: location.pathname,
         search: (prev) => ({ ...prev, createOrg: false }),

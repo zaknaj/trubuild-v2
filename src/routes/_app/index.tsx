@@ -19,17 +19,6 @@ function RouteComponent() {
         onClick={() => {
           navigate({
             to: location.pathname,
-            search: (prev) => ({ ...prev, createOrg: true }),
-          })
-        }}
-      >
-        Create Organization
-      </Button>
-
-      <Button
-        onClick={() => {
-          navigate({
-            to: location.pathname,
             search: (prev) => ({ ...prev, newProj: true }),
           })
         }}
