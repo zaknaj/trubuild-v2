@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Drawer,
   DrawerContent,
@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createAssetFn, invitePackageMemberFn } from "@/fn"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { FormEvent, useEffect, useState } from "react"
 
 type Member = {
@@ -72,7 +72,6 @@ function RouteComponent() {
   const { data: packageData } = useQuery(packageDetailQueryOptions(id))
   const { data: members = [] } = useQuery(packageMembersQueryOptions(id))
   const { data: initialInvitations = [] } = useQuery(packageInvitationsQueryOptions(id))
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [drawer, setDrawer] = useState<DrawerType>(null)
@@ -185,13 +184,13 @@ function RouteComponent() {
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Package</p>
           <h1 className="text-2xl font-semibold text-slate-900">{pkg.name}</h1>
           <p className="text-xs text-muted-foreground">Created {formatDate(pkg.createdAt)}</p>
-          <button
-            type="button"
+          <Link
+            to="/project/$id"
+            params={{ id: project.id }}
             className="text-xs font-medium text-blue-600 underline-offset-4 hover:underline"
-            onClick={() => navigate({ to: "/project/$id", params: { id: project.id } })}
           >
             Back to {project.name}
-          </button>
+          </Link>
         </div>
         <Button onClick={() => setDrawer("createAsset")}>New asset</Button>
       </div>
@@ -276,15 +275,13 @@ function RouteComponent() {
                   <p className="text-base font-semibold text-slate-900">{asset.name}</p>
                   <p className="text-xs text-muted-foreground">Created {formatDate(asset.createdAt)}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    navigate({ to: "/package/$id/comm/$assetId", params: { id: pkg.id, assetId: asset.id } })
-                  }
+                <Link
+                  to="/package/$id/comm/$assetId"
+                  params={{ id: pkg.id, assetId: asset.id }}
+                  className={buttonVariants({ variant: "ghost", size: "sm" })}
                 >
                   View
-                </Button>
+                </Link>
               </div>
             </div>
           ))}

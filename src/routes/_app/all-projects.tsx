@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Drawer,
   DrawerContent,
@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createProjectFn } from "@/fn"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { FormEvent, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { RouterContext } from "@/router"
@@ -35,7 +35,6 @@ type Project = {
 
 function RouteComponent() {
   const { data: projects = [] } = useQuery(projectsQueryOptions)
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [isOpen, setIsOpen] = useState(false)
@@ -102,13 +101,13 @@ function RouteComponent() {
                   <p className="text-base font-semibold text-slate-900">{project.name}</p>
                   <p className="text-xs text-muted-foreground">Created {formatDate(project.createdAt)}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate({ to: "/project/$id", params: { id: project.id } })}
+                <Link
+                  to="/project/$id"
+                  params={{ id: project.id }}
+                  className={buttonVariants({ variant: "ghost", size: "sm" })}
                 >
                   View
-                </Button>
+                </Link>
               </div>
             </div>
           ))}

@@ -30,8 +30,8 @@ export const Route = createFileRoute("/_app")({
     if (!session) {
       throw redirect({ to: "/login" })
     }
-    // Fire and forget - data will be ready by the time component needs it
-    void queryClient.ensureQueryData(orgsQueryOptions)
+    // Await orgs to prevent showing create org drawer when orgs exist but haven't loaded yet
+    await queryClient.ensureQueryData(orgsQueryOptions)
     void queryClient.ensureQueryData(activeOrgIdQueryOptions)
   },
   component: RouteComponent,
@@ -41,7 +41,7 @@ type DrawerType = "createOrg" | "createProject" | null
 
 function RouteComponent() {
   const { data: activeOrg } = useQuery(activeOrgIdQueryOptions)
-  const { data: orgs = [] } = useQuery(orgsQueryOptions)
+  const { data: orgs = [], isLoading: isLoadingOrgs } = useQuery(orgsQueryOptions)
   const queryClient = useQueryClient()
 
   const [drawer, setDrawer] = useState<DrawerType>(null)
@@ -55,12 +55,12 @@ function RouteComponent() {
     }
   }, [orgs, activeOrg, queryClient])
 
-  // Show create org drawer if no orgs
+  // Show create org drawer if no orgs (only after loading is complete)
   useEffect(() => {
-    if (orgs.length === 0) {
+    if (!isLoadingOrgs && orgs.length === 0) {
       setDrawer("createOrg")
     }
-  }, [orgs.length])
+  }, [orgs.length, isLoadingOrgs])
 
   // Project form state
   const [projectName, setProjectName] = useState("")

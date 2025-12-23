@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Drawer,
   DrawerContent,
@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createPackageFn, inviteProjectMemberFn } from "@/fn"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { FormEvent, useEffect, useState } from "react"
 
 type Member = {
@@ -72,7 +72,6 @@ function RouteComponent() {
   const { data: projectData } = useQuery(projectDetailQueryOptions(id))
   const { data: members = [] } = useQuery(projectMembersQueryOptions(id))
   const { data: initialInvitations = [] } = useQuery(projectInvitationsQueryOptions(id))
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [drawer, setDrawer] = useState<DrawerType>(null)
@@ -267,13 +266,13 @@ function RouteComponent() {
                   <p className="text-base font-semibold text-slate-900">{pkg.name}</p>
                   <p className="text-xs text-muted-foreground">Created {formatDate(pkg.createdAt)}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate({ to: "/package/$id", params: { id: pkg.id } })}
+                <Link
+                  to="/package/$id"
+                  params={{ id: pkg.id }}
+                  className={buttonVariants({ variant: "ghost", size: "sm" })}
                 >
                   View
-                </Button>
+                </Link>
               </div>
             </div>
           ))}
