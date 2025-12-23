@@ -1,10 +1,4 @@
-import {
-  Link,
-  useNavigate,
-  useLocation,
-  useRouter,
-} from "@tanstack/react-router"
-import { Route } from "@/routes/_app"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { setActiveOrgFn } from "@/fn"
 import { Button } from "@/components/ui/button"
 import { authClient } from "@/auth/auth-client"
@@ -17,13 +11,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  activeOrgIdQueryOptions,
+  orgsQueryOptions,
+  sessionQueryOptions,
+} from "@/lib/query-options"
 
-export const Navbar = () => {
-  const { orgs, activeOrg, user } = Route.useLoaderData()
+type NavbarProps = {
+  onCreateProject?: () => void
+  onCreateOrg?: () => void
+}
+
+export const Navbar = ({ onCreateOrg }: NavbarProps) => {
+  const { data: session } = useQuery(sessionQueryOptions)
+  const { data: orgs = [] } = useQuery(orgsQueryOptions)
+  const { data: activeOrg } = useQuery(activeOrgIdQueryOptions)
+  const user = session?.user
   const activeOrganization = orgs.find((org) => org.id === activeOrg)
   const navigate = useNavigate()
-  const location = useLocation()
-  const router = useRouter()
+  const queryClient = useQueryClient()
   const [isSwitching, setIsSwitching] = useState(false)
 
   const handleOrgSwitch = async (organizationId: string) => {
@@ -31,7 +38,9 @@ export const Navbar = () => {
     setIsSwitching(true)
     try {
       await setActiveOrgFn({ data: { organizationId } })
-      await router.invalidate()
+      await queryClient.invalidateQueries({
+        queryKey: activeOrgIdQueryOptions.queryKey,
+      })
     } catch (error) {
       console.error("Failed to switch organization:", error)
     } finally {
@@ -39,15 +48,9 @@ export const Navbar = () => {
     }
   }
 
-  const handleCreateOrg = () => {
-    navigate({
-      to: location.pathname,
-      search: (prev) => ({ ...prev, createOrg: true }),
-    })
-  }
-
   const handleLogout = async () => {
     await authClient.signOut()
+    queryClient.clear()
     navigate({ to: "/login" })
   }
 
@@ -74,7 +77,7 @@ export const Navbar = () => {
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleCreateOrg}>
+            <DropdownMenuItem onClick={onCreateOrg}>
               Create new organization
             </DropdownMenuItem>
           </DropdownMenuContent>

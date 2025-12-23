@@ -1,12 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import {
-  getOrgMembersFn,
-  inviteMemberFn,
-  getInvitationsFn,
-  getAllProjectInvitationsFn,
-  getAllPackageInvitationsFn,
-} from "@/fn"
-import { useState, FormEvent } from "react"
+import { inviteMemberFn } from "@/fn"
+import { FormEvent, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,18 +21,23 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { UserPlus, Mail, FolderOpen, Package } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import type { RouterContext } from "@/router"
+import {
+  orgInvitationsQueryOptions,
+  orgMembersQueryOptions,
+  orgPackageInvitationsQueryOptions,
+  orgProjectInvitationsQueryOptions,
+} from "@/lib/query-options"
 
 export const Route = createFileRoute("/_app/settings")({
   component: RouteComponent,
-  loader: async () => {
-    const [members, orgInvitations, projectInvitations, packageInvitations] =
-      await Promise.all([
-        getOrgMembersFn(),
-        getInvitationsFn(),
-        getAllProjectInvitationsFn(),
-        getAllPackageInvitationsFn(),
-      ])
-    return { members, orgInvitations, projectInvitations, packageInvitations }
+  loader: ({ context }) => {
+    const { queryClient } = context as RouterContext
+    void queryClient.ensureQueryData(orgMembersQueryOptions)
+    void queryClient.ensureQueryData(orgInvitationsQueryOptions)
+    void queryClient.ensureQueryData(orgProjectInvitationsQueryOptions)
+    void queryClient.ensureQueryData(orgPackageInvitationsQueryOptions)
   },
 })
 
@@ -51,21 +50,63 @@ type OrgInvitation = {
   createdAt: string | null
 }
 
+type Member = {
+  id: string
+  role: string
+  createdAt: string
+  userId: string
+  userName: string | null
+  userEmail: string
+  userImage: string | null
+}
+
+type ProjectInvitation = {
+  id: string
+  email: string
+  role: string
+  status: string
+  expiresAt: string
+  createdAt: string
+  projectId: string
+  projectName: string
+}
+
+type PackageInvitation = {
+  id: string
+  email: string
+  role: string
+  status: string
+  expiresAt: string
+  createdAt: string
+  packageId: string
+  packageName: string
+  projectId: string
+  projectName: string
+}
+
 function RouteComponent() {
-  const {
-    members,
-    orgInvitations: initialOrgInvitations,
-    projectInvitations,
-    packageInvitations,
-  } = Route.useLoaderData()
-  const [invitations, setInvitations] = useState<OrgInvitation[]>(
-    initialOrgInvitations
+  const { data: members = [] } = useQuery(orgMembersQueryOptions)
+  const { data: initialOrgInvitations = [] } = useQuery(
+    orgInvitationsQueryOptions
   )
+  const { data: projectInvitations = [] } = useQuery(
+    orgProjectInvitationsQueryOptions
+  )
+  const { data: packageInvitations = [] } = useQuery(
+    orgPackageInvitationsQueryOptions
+  )
+  const [invitations, setInvitations] =
+    useState<OrgInvitation[]>(initialOrgInvitations)
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<"admin" | "owner" | "member">("member")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    setInvitations(initialOrgInvitations)
+  }, [initialOrgInvitations])
 
   const handleInvite = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -94,6 +135,9 @@ function RouteComponent() {
 
     try {
       await inviteMemberFn({ data: { email: trimmedEmail, role } })
+      await queryClient.invalidateQueries({
+        queryKey: orgInvitationsQueryOptions.queryKey,
+      })
     } catch (err) {
       // Remove optimistic invite on error
       setInvitations((prev) => prev.filter((i) => i.id !== optimisticInvite.id))
@@ -135,7 +179,7 @@ function RouteComponent() {
               No members found
             </div>
           ) : (
-            members.map((m) => (
+            members.map((m: Member) => (
               <div key={m.id} className="flex items-center gap-3 p-3">
                 {m.userImage ? (
                   <img
@@ -188,7 +232,7 @@ function RouteComponent() {
             ))}
 
             {/* Project invitations */}
-            {projectInvitations.map((inv) => (
+            {projectInvitations.map((inv: ProjectInvitation) => (
               <div key={inv.id} className="flex items-center gap-3 p-3">
                 <div className="size-9 rounded-full bg-blue-100 flex items-center justify-center">
                   <FolderOpen className="size-4 text-blue-600" />
@@ -213,7 +257,7 @@ function RouteComponent() {
             ))}
 
             {/* Package invitations */}
-            {packageInvitations.map((inv) => (
+            {packageInvitations.map((inv: PackageInvitation) => (
               <div key={inv.id} className="flex items-center gap-3 p-3">
                 <div className="size-9 rounded-full bg-purple-100 flex items-center justify-center">
                   <Package className="size-4 text-purple-600" />

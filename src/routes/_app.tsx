@@ -1,21 +1,7 @@
-import {
-  createProjectFn,
-  getActiveOrgFn,
-  getOrgsFn,
-  getSession,
-  setActiveOrgFn,
-  setOrgCreatorAsAdminFn,
-} from "@/fn"
-import {
-  createFileRoute,
-  Outlet,
-  redirect,
-  useNavigate,
-  useLocation,
-  useRouter,
-} from "@tanstack/react-router"
-import { z } from "zod"
-import { FormEvent, useEffect, useState } from "react"
+import { createProjectFn, setActiveOrgFn, setOrgCreatorAsAdminFn } from "@/fn"
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { FormEvent, useState, useEffect } from "react"
 import { Navbar } from "@/components/Navbar"
 import {
   Drawer,
@@ -29,138 +15,120 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { authClient } from "@/auth/auth-client"
+import type { RouterContext } from "@/router"
+import {
+  activeOrgIdQueryOptions,
+  orgsQueryOptions,
+  sessionQueryOptions,
+} from "@/lib/query-options"
 
 export const Route = createFileRoute("/_app")({
-  loaderDeps: ({ search }) => ({
-    createOrg: search.createOrg,
-    newProj: search.newProj,
-  }),
-  loader: async ({ deps: { createOrg } }) => {
-    const session = await getSession()
+  loader: async ({ context }) => {
+    const { queryClient } = context as RouterContext
+    // Session check must await for auth redirect
+    const session = await queryClient.ensureQueryData(sessionQueryOptions)
     if (!session) {
       throw redirect({ to: "/login" })
     }
-    const orgs = await getOrgsFn()
-    let activeOrg = await getActiveOrgFn()
-
-    if (orgs.length === 0 && !createOrg) {
-      throw redirect({ to: "/", search: { createOrg: true } })
-    }
-
-    if (orgs.length > 0 && !activeOrg) {
-      await setActiveOrgFn({ data: { organizationId: orgs[0].id } })
-      activeOrg = orgs[0].id
-    }
-    return {
-      ...session,
-      orgs,
-      activeOrg,
-    }
+    // Fire and forget - data will be ready by the time component needs it
+    void queryClient.ensureQueryData(orgsQueryOptions)
+    void queryClient.ensureQueryData(activeOrgIdQueryOptions)
   },
   component: RouteComponent,
-  validateSearch: z.object({
-    createOrg: z.boolean().optional(),
-    newProj: z.boolean().optional(),
-  }),
-  staleTime: Infinity,
 })
 
+type DrawerType = "createOrg" | "createProject" | null
+
 function RouteComponent() {
-  const { createOrg, newProj } = Route.useSearch()
-  const { activeOrg } = Route.useLoaderData()
+  const { data: activeOrg } = useQuery(activeOrgIdQueryOptions)
+  const { data: orgs = [] } = useQuery(orgsQueryOptions)
+  const queryClient = useQueryClient()
 
-  const navigate = useNavigate()
-  const location = useLocation()
-  const router = useRouter()
+  const [drawer, setDrawer] = useState<DrawerType>(null)
+
+  // Auto-set first org as active if needed
+  useEffect(() => {
+    if (orgs.length > 0 && !activeOrg) {
+      setActiveOrgFn({ data: { organizationId: orgs[0].id } }).then(() => {
+        queryClient.setQueryData(activeOrgIdQueryOptions.queryKey, orgs[0].id)
+      })
+    }
+  }, [orgs, activeOrg, queryClient])
+
+  // Show create org drawer if no orgs
+  useEffect(() => {
+    if (orgs.length === 0) {
+      setDrawer("createOrg")
+    }
+  }, [orgs.length])
+
+  // Project form state
   const [projectName, setProjectName] = useState("")
-  const [createError, setCreateError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const trimmedProjectName = projectName.trim()
+  const [projectError, setProjectError] = useState<string | null>(null)
+  const [isCreatingProject, setIsCreatingProject] = useState(false)
 
+  // Org form state
   const [orgName, setOrgName] = useState("")
-  const [createOrgError, setCreateOrgError] = useState<string | null>(null)
+  const [orgError, setOrgError] = useState<string | null>(null)
   const [isCreatingOrg, setIsCreatingOrg] = useState(false)
-  const trimmedOrgName = orgName.trim()
 
-  useEffect(() => {
-    if (!newProj) {
-      setProjectName("")
-      setCreateError(null)
-      setIsSubmitting(false)
-    }
-  }, [newProj])
+  const closeDrawer = () => {
+    setDrawer(null)
+    setProjectName("")
+    setProjectError(null)
+    setOrgName("")
+    setOrgError(null)
+  }
 
-  useEffect(() => {
-    if (!createOrg) {
-      setOrgName("")
-      setCreateOrgError(null)
-      setIsCreatingOrg(false)
-    }
-  }, [createOrg])
-
-  const handleCreateProject = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!trimmedProjectName) {
-      setCreateError("Project name is required")
+  const handleCreateProject = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const name = projectName.trim()
+    if (!name) {
+      setProjectError("Project name is required")
       return
     }
 
-    setIsSubmitting(true)
-    setCreateError(null)
+    setIsCreatingProject(true)
+    setProjectError(null)
     try {
-      await createProjectFn({ data: { name: trimmedProjectName } })
-      navigate({
-        to: location.pathname,
-        search: (prev) => ({ ...prev, newProj: false }),
-      })
+      await createProjectFn({ data: { name } })
+      closeDrawer()
     } catch (error) {
-      console.error(error)
-      setCreateError(
-        error instanceof Error ? error.message : "Unable to create project."
-      )
+      setProjectError(error instanceof Error ? error.message : "Unable to create project.")
     } finally {
-      setIsSubmitting(false)
+      setIsCreatingProject(false)
     }
   }
 
-  const handleCreateOrg = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!trimmedOrgName) {
-      setCreateOrgError("Organization name is required")
+  const handleCreateOrg = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const name = orgName.trim()
+    if (!name) {
+      setOrgError("Organization name is required")
       return
     }
 
     setIsCreatingOrg(true)
-    setCreateOrgError(null)
+    setOrgError(null)
     try {
       const result = await authClient.organization.create({
-        name: trimmedOrgName,
-        slug: trimmedOrgName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        name,
+        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       })
-      // Set the creator as admin
       if (result?.data?.id) {
         try {
-          await setOrgCreatorAsAdminFn({
-            data: { organizationId: result.data.id },
-          })
-        } catch (adminError) {
-          console.error("Failed to set admin role:", adminError)
-          // Continue anyway - organization was created successfully
+          await setOrgCreatorAsAdminFn({ data: { organizationId: result.data.id } })
+        } catch {
+          // Continue anyway
         }
       }
-      navigate({
-        to: location.pathname,
-        search: (prev) => ({ ...prev, createOrg: false }),
-      })
-      // Invalidate the route to reload organizations
-      await router.invalidate()
+      closeDrawer()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: orgsQueryOptions.queryKey }),
+        queryClient.invalidateQueries({ queryKey: activeOrgIdQueryOptions.queryKey }),
+      ])
     } catch (error) {
-      console.error(error)
-      setCreateOrgError(
-        error instanceof Error
-          ? error.message
-          : "Unable to create organization."
-      )
+      setOrgError(error instanceof Error ? error.message : "Unable to create organization.")
     } finally {
       setIsCreatingOrg(false)
     }
@@ -168,29 +136,18 @@ function RouteComponent() {
 
   return (
     <div className="w-full h-screen main-bg-gradient flex flex-col text-sm">
-      <Navbar />
+      <Navbar onCreateOrg={() => setDrawer("createOrg")} />
       <div className="size-full [--p:24px] [--r:12px] [--d:6px] p-(--p) pt-0 flex-1 relative">
         <div
           className="absolute bg-white/20 -top-(--d) left-[calc(var(--p)-var(--d))] h-[calc(100%-var(--p)+var(--d)*2)] 
           w-[calc(100%-(var(--p)-var(--d))*2)] rounded-[calc(var(--r)+var(--d))] border-[0.5px] border-white/30 [box-shadow:0_0_20px_rgba(0,0,0,0.25)]"
-        ></div>
+        />
         <div className="relative bg-white rounded-(--r) size-full">
           <Outlet />
         </div>
       </div>
 
-      {/* {createOrg && <CreateOrgModal />} */}
-
-      <Drawer
-        open={createOrg}
-        direction="right"
-        onClose={() => {
-          navigate({
-            to: location.pathname,
-            search: (prev) => ({ ...prev, createOrg: false }),
-          })
-        }}
-      >
+      <Drawer open={drawer === "createOrg"} direction="right" onClose={closeDrawer}>
         <DrawerContent className="min-w-[500px]">
           <form className="space-y-6" onSubmit={handleCreateOrg}>
             <DrawerHeader>
@@ -205,12 +162,12 @@ function RouteComponent() {
                 id="org-name"
                 placeholder="Acme Inc"
                 value={orgName}
-                onChange={(event) => setOrgName(event.target.value)}
+                onChange={(e) => setOrgName(e.target.value)}
                 disabled={isCreatingOrg}
                 autoFocus
               />
-              {createOrgError ? (
-                <p className="text-sm text-red-500">{createOrgError}</p>
+              {orgError ? (
+                <p className="text-sm text-red-500">{orgError}</p>
               ) : (
                 <p className="text-xs text-muted-foreground">
                   Organizations help you organize and manage your projects.
@@ -218,7 +175,7 @@ function RouteComponent() {
               )}
             </div>
             <DrawerFooter>
-              <Button type="submit" disabled={isCreatingOrg || !trimmedOrgName}>
+              <Button type="submit" disabled={isCreatingOrg || !orgName.trim()}>
                 {isCreatingOrg ? "Creating..." : "Create organization"}
               </Button>
             </DrawerFooter>
@@ -226,16 +183,7 @@ function RouteComponent() {
         </DrawerContent>
       </Drawer>
 
-      <Drawer
-        open={newProj}
-        direction="right"
-        onClose={() => {
-          navigate({
-            to: location.pathname,
-            search: (prev) => ({ ...prev, newProj: false }),
-          })
-        }}
-      >
+      <Drawer open={drawer === "createProject"} direction="right" onClose={closeDrawer}>
         <DrawerContent className="min-w-[500px]">
           <form className="space-y-6" onSubmit={handleCreateProject}>
             <DrawerHeader>
@@ -250,12 +198,12 @@ function RouteComponent() {
                 id="project-name"
                 placeholder="Project Nova"
                 value={projectName}
-                onChange={(event) => setProjectName(event.target.value)}
-                disabled={isSubmitting || !activeOrg}
+                onChange={(e) => setProjectName(e.target.value)}
+                disabled={isCreatingProject || !activeOrg}
                 autoFocus
               />
-              {createError ? (
-                <p className="text-sm text-red-500">{createError}</p>
+              {projectError ? (
+                <p className="text-sm text-red-500">{projectError}</p>
               ) : (
                 <p className="text-xs text-muted-foreground">
                   Projects are created inside your active organization.
@@ -270,9 +218,9 @@ function RouteComponent() {
             <DrawerFooter>
               <Button
                 type="submit"
-                disabled={isSubmitting || !trimmedProjectName || !activeOrg}
+                disabled={isCreatingProject || !projectName.trim() || !activeOrg}
               >
-                {isSubmitting ? "Creating..." : "Create project"}
+                {isCreatingProject ? "Creating..." : "Create project"}
               </Button>
             </DrawerFooter>
           </form>

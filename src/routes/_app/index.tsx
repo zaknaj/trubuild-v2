@@ -1,10 +1,5 @@
 import { Button } from "@/components/ui/button"
-
-import {
-  createFileRoute,
-  useNavigate,
-  useLocation,
-} from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_app/")({
   component: RouteComponent,
@@ -12,18 +7,10 @@ export const Route = createFileRoute("/_app/")({
 
 function RouteComponent() {
   const navigate = useNavigate()
-  const location = useLocation()
   return (
     <div className="p-5">
-      <Button
-        onClick={() => {
-          navigate({
-            to: location.pathname,
-            search: (prev) => ({ ...prev, newProj: true }),
-          })
-        }}
-      >
-        Create Project
+      <Button onClick={() => navigate({ to: "/all-projects" })}>
+        View Projects
       </Button>
     </div>
   )
