@@ -8,12 +8,6 @@ import {
 
 export const Route = createFileRoute("/_app/")({
   component: RouteComponent,
-  loader: async () => {
-    console.log("Index loader")
-    return {
-      message: "Index",
-    }
-  },
 })
 
 function RouteComponent() {

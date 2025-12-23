@@ -11,6 +11,7 @@ import {
   redirect,
   useNavigate,
   useLocation,
+  useRouter,
 } from "@tanstack/react-router"
 import { z } from "zod"
 import { FormEvent, useEffect, useState } from "react"
@@ -26,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { authClient } from "@/auth/auth-client"
 
 export const Route = createFileRoute("/_app")({
   loaderDeps: ({ search }) => ({
@@ -33,15 +35,12 @@ export const Route = createFileRoute("/_app")({
     newProj: search.newProj,
   }),
   loader: async ({ deps: { createOrg } }) => {
-    console.log("getting the session, orgs and active org")
     const session = await getSession()
     if (!session) {
       throw redirect({ to: "/login" })
     }
     const orgs = await getOrgsFn()
     let activeOrg = await getActiveOrgFn()
-
-    console.log("orgs in server", orgs)
 
     if (orgs.length === 0 && !createOrg) {
       throw redirect({ to: "/", search: { createOrg: true } })
@@ -71,10 +70,16 @@ function RouteComponent() {
 
   const navigate = useNavigate()
   const location = useLocation()
+  const router = useRouter()
   const [projectName, setProjectName] = useState("")
   const [createError, setCreateError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const trimmedProjectName = projectName.trim()
+
+  const [orgName, setOrgName] = useState("")
+  const [createOrgError, setCreateOrgError] = useState<string | null>(null)
+  const [isCreatingOrg, setIsCreatingOrg] = useState(false)
+  const trimmedOrgName = orgName.trim()
 
   useEffect(() => {
     if (!newProj) {
@@ -83,6 +88,14 @@ function RouteComponent() {
       setIsSubmitting(false)
     }
   }, [newProj])
+
+  useEffect(() => {
+    if (!createOrg) {
+      setOrgName("")
+      setCreateOrgError(null)
+      setIsCreatingOrg(false)
+    }
+  }, [createOrg])
 
   const handleCreateProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -106,6 +119,38 @@ function RouteComponent() {
       )
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleCreateOrg = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!trimmedOrgName) {
+      setCreateOrgError("Organization name is required")
+      return
+    }
+
+    setIsCreatingOrg(true)
+    setCreateOrgError(null)
+    try {
+      await authClient.organization.create({
+        name: trimmedOrgName,
+        slug: trimmedOrgName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      })
+      navigate({
+        to: location.pathname,
+        search: (prev) => ({ ...prev, createOrg: false }),
+      })
+      // Invalidate the route to reload organizations
+      await router.invalidate()
+    } catch (error) {
+      console.error(error)
+      setCreateOrgError(
+        error instanceof Error
+          ? error.message
+          : "Unable to create organization."
+      )
+    } finally {
+      setIsCreatingOrg(false)
     }
   }
 
@@ -135,16 +180,37 @@ function RouteComponent() {
         }}
       >
         <DrawerContent className="min-w-[500px]">
-          <DrawerHeader>
-            <DrawerTitle>Are you absolutely sure?</DrawerTitle>
-            <DrawerDescription>This action cannot be undone.</DrawerDescription>
-          </DrawerHeader>
-          <DrawerFooter>
-            <Button>Submit</Button>
-            {/* <DrawerClose>
-              <Button variant="outline">Cancel</Button>
-            </DrawerClose> */}
-          </DrawerFooter>
+          <form className="space-y-6" onSubmit={handleCreateOrg}>
+            <DrawerHeader>
+              <DrawerTitle>Create Organization</DrawerTitle>
+              <DrawerDescription>
+                Create a new organization to manage your projects.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="px-6 space-y-2">
+              <Label htmlFor="org-name">Organization name</Label>
+              <Input
+                id="org-name"
+                placeholder="Acme Inc"
+                value={orgName}
+                onChange={(event) => setOrgName(event.target.value)}
+                disabled={isCreatingOrg}
+                autoFocus
+              />
+              {createOrgError ? (
+                <p className="text-sm text-red-500">{createOrgError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Organizations help you organize and manage your projects.
+                </p>
+              )}
+            </div>
+            <DrawerFooter>
+              <Button type="submit" disabled={isCreatingOrg || !trimmedOrgName}>
+                {isCreatingOrg ? "Creating..." : "Create organization"}
+              </Button>
+            </DrawerFooter>
+          </form>
         </DrawerContent>
       </Drawer>
 

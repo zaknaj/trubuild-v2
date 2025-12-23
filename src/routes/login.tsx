@@ -1,5 +1,5 @@
 import { authClient } from "@/auth/auth-client"
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/react-router"
 import { createMiddleware } from "@tanstack/react-start"
 import { useState } from "react"
 import { getSession } from "@/fn"
@@ -25,6 +25,7 @@ function RouteComponent() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
+  const router = useRouter()
 
   const handleSignIn = async () => {
     setError(null)
@@ -38,6 +39,7 @@ function RouteComponent() {
       })
 
       if (signInResult.data) {
+        await router.invalidate()
         navigate({ to: "/" })
         return
       }
@@ -58,6 +60,7 @@ function RouteComponent() {
         })
 
         if (signUpResult.data) {
+          await router.invalidate()
           navigate({ to: "/" })
           return
         } else if (signUpResult.error) {

@@ -1,7 +1,13 @@
-import { Link, useNavigate, useLocation } from "@tanstack/react-router"
+import {
+  Link,
+  useNavigate,
+  useLocation,
+  useRouter,
+} from "@tanstack/react-router"
 import { Route } from "@/routes/_app"
 import { setActiveOrgFn } from "@/fn"
 import { Button } from "@/components/ui/button"
+import { authClient } from "@/auth/auth-client"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +19,11 @@ import {
 import { useState } from "react"
 
 export const Navbar = () => {
-  const { orgs, activeOrg } = Route.useLoaderData()
+  const { orgs, activeOrg, user } = Route.useLoaderData()
   const activeOrganization = orgs.find((org) => org.id === activeOrg)
   const navigate = useNavigate()
   const location = useLocation()
+  const router = useRouter()
   const [isSwitching, setIsSwitching] = useState(false)
 
   const handleOrgSwitch = async (organizationId: string) => {
@@ -24,7 +31,7 @@ export const Navbar = () => {
     setIsSwitching(true)
     try {
       await setActiveOrgFn({ data: { organizationId } })
-      navigate({ to: location.pathname, search: location.search })
+      await router.invalidate()
     } catch (error) {
       console.error("Failed to switch organization:", error)
     } finally {
@@ -39,12 +46,17 @@ export const Navbar = () => {
     })
   }
 
+  const handleLogout = async () => {
+    await authClient.signOut()
+    navigate({ to: "/login" })
+  }
+
   return (
     <div className="h-[67px] flex items-center px-7 text-white pb-2 justify-between">
       <div className="flex-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="text-white hover:bg-white/10">
+            <Button variant="outline" className="text-white bg-transparent">
               logo | {activeOrganization ? activeOrganization.name : "..."}
             </Button>
           </DropdownMenuTrigger>
@@ -91,7 +103,28 @@ export const Navbar = () => {
           Settings
         </Link>
       </div>
-      <div className="flex-1 flex justify-end">profile</div>
+      <div className="flex-1 flex justify-end">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="text-white bg-transparent">
+              <span className="font-medium">{user?.name}</span>
+              <span className="opacity-50 text-sm">({user?.email})</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>
+              <div className="flex flex-col">
+                <div>{user?.name}</div>
+                <div className="text-sm font-normal text-muted-foreground">
+                  {user?.email}
+                </div>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   )
 }
