@@ -3,7 +3,6 @@ import {
   createFileRoute,
   Outlet,
   redirect,
-  useLocation,
 } from "@tanstack/react-router"
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query"
 import { Suspense, useEffect } from "react"
@@ -16,7 +15,7 @@ import {
 import { SidebarProvider, useSidebarContent } from "@/components/SidebarContext"
 
 export const Route = createFileRoute("/_app")({
-  loader: async ({ context, location }) => {
+  loader: async ({ context }) => {
     const { queryClient } = context
     // Session check must await for auth redirect
     const session = await queryClient.ensureQueryData(sessionQueryOptions)
@@ -28,21 +27,18 @@ export const Route = createFileRoute("/_app")({
       queryClient.ensureQueryData(orgsQueryOptions),
       queryClient.ensureQueryData(activeOrgIdQueryOptions),
     ])
-    // Redirect to create-org if user has no orgs (unless already on create-org page)
-    if (orgs.length === 0 && location.pathname !== "/create-org") {
-      throw redirect({ to: "/create-org" })
+    // Redirect to login if user has no orgs (login page will show create org form)
+    if (orgs.length === 0) {
+      throw redirect({ to: "/login" })
     }
   },
   component: RouteComponent,
 })
 
 function RouteComponent() {
-  const location = useLocation()
   const { data: activeOrg } = useSuspenseQuery(activeOrgIdQueryOptions)
   const { data: orgs } = useSuspenseQuery(orgsQueryOptions)
   const queryClient = useQueryClient()
-  const isCreateOrgPage = location.pathname === "/create-org"
-  const shouldHideNavbar = isCreateOrgPage && orgs.length === 0
 
   // Auto-set first org as active if needed
   useEffect(() => {
@@ -52,18 +48,6 @@ function RouteComponent() {
       })
     }
   }, [orgs, activeOrg, queryClient])
-
-  // Create-org page has its own layout
-  if (isCreateOrgPage) {
-    return (
-      <div className="w-full h-screen flex flex-col text-sm">
-        {!shouldHideNavbar && <Navbar />}
-        <Suspense fallback={<div className="p-6">Loading...</div>}>
-          <Outlet />
-        </Suspense>
-      </div>
-    )
-  }
 
   return (
     <div className="w-full h-screen flex flex-col text-sm">

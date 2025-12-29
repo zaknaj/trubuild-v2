@@ -19,9 +19,11 @@ import { PlusIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Spinner } from "@/components/ui/spinner"
 import { Button } from "./ui/button"
+import { CreateOrgModal } from "./CreateOrgModal"
 
 export const OrgNavButton = () => {
   const [open, setOpen] = useState(false)
+  const [createModalOpen, setCreateModalOpen] = useState(false)
   const { data: orgs } = useSuspenseQuery(orgsQueryOptions)
   const { data: activeOrg } = useSuspenseQuery(activeOrgIdQueryOptions)
   const activeOrganization = orgs.find((org) => org.id === activeOrg)
@@ -58,65 +60,66 @@ export const OrgNavButton = () => {
   const switchingOrgId = switchOrg.variables
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="navGhost" className="-ml-2">
-          <div className="size-6 rounded-md bg-white/20"></div>
-          <span className="font-medium first-letter:uppercase">
-            {activeOrganization?.name}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="min-w-56 w-fit">
-        <DropdownMenuLabel>My organizations</DropdownMenuLabel>
-        {orgs.map((org) => {
-          const isCurrentOrg = org.id === activeOrg
-          const isSwitchingToThis = isSwitching && switchingOrgId === org.id
-          const isDisabled = isCurrentOrg || isSwitching
+    <>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="navGhost" className="-ml-2">
+            <div className="size-6 rounded-md bg-white/20"></div>
+            <span className="font-medium first-letter:uppercase">
+              {activeOrganization?.name}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="min-w-56 w-fit">
+          <DropdownMenuLabel>My organizations</DropdownMenuLabel>
+          {orgs.map((org) => {
+            const isCurrentOrg = org.id === activeOrg
+            const isSwitchingToThis = isSwitching && switchingOrgId === org.id
+            const isDisabled = isCurrentOrg || isSwitching
 
-          return (
-            <DropdownMenuItem
-              key={org.id}
-              className={cn(
-                "whitespace-nowrap h-9",
-                isDisabled && "pointer-events-none"
-              )}
-              onSelect={(e) => {
-                e.preventDefault()
-                if (!isDisabled) {
-                  switchOrg.mutate(org.id)
-                }
-              }}
-            >
-              {isSwitchingToThis ? (
-                <Spinner className="size-6 stroke-1 opacity-50 " />
-              ) : (
-                <div
-                  className={cn(
-                    "size-6 rounded-full bg-black/10",
-                    isCurrentOrg && "ring-primary  ring"
-                  )}
-                />
-              )}
-              {org.name}
-            </DropdownMenuItem>
-          )
-        })}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className={cn(isSwitching && "pointer-events-none opacity-50")}
-          onSelect={(e) => {
-            if (isSwitching) {
+            return (
+              <DropdownMenuItem
+                key={org.id}
+                className={cn(
+                  "whitespace-nowrap h-9",
+                  isDisabled && "pointer-events-none"
+                )}
+                onSelect={(e) => {
+                  e.preventDefault()
+                  if (!isDisabled) {
+                    switchOrg.mutate(org.id)
+                  }
+                }}
+              >
+                {isSwitchingToThis ? (
+                  <Spinner className="size-6 stroke-1 opacity-50 " />
+                ) : (
+                  <div
+                    className={cn(
+                      "size-6 rounded-full bg-black/10",
+                      isCurrentOrg && "ring-primary  ring"
+                    )}
+                  />
+                )}
+                {org.name}
+              </DropdownMenuItem>
+            )
+          })}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className={cn(isSwitching && "pointer-events-none opacity-50")}
+            onSelect={(e) => {
               e.preventDefault()
-              return
-            }
-            navigate({ to: "/create-org" })
-          }}
-        >
-          <PlusIcon className="size-3 mx-1" />
-          <div>Create an organization</div>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+              setOpen(false)
+              setCreateModalOpen(true)
+            }}
+          >
+            <PlusIcon className="size-3 mx-1" />
+            <div>Create an organization</div>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <CreateOrgModal open={createModalOpen} onOpenChange={setCreateModalOpen} />
+    </>
   )
 }
