@@ -15,13 +15,19 @@ import { useState } from "react"
 import type { Package } from "@/lib/types"
 import { Settings } from "lucide-react"
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { projectDetailQueryOptions } from "@/lib/query-options"
+import {
+  projectDetailQueryOptions,
+  projectAccessQueryOptions,
+} from "@/lib/query-options"
 import { PageSidebar } from "@/components/PageSidebar"
 
 export const Route = createFileRoute("/_app/project/$id/")({
   loader: ({ params, context }) => {
     void context.queryClient.ensureQueryData(
       projectDetailQueryOptions(params.id)
+    )
+    void context.queryClient.ensureQueryData(
+      projectAccessQueryOptions(params.id)
     )
   },
   component: RouteComponent,
@@ -30,12 +36,14 @@ export const Route = createFileRoute("/_app/project/$id/")({
 function RouteComponent() {
   const { id } = Route.useParams()
   const { data: projectData } = useSuspenseQuery(projectDetailQueryOptions(id))
+  const { data: accessData } = useSuspenseQuery(projectAccessQueryOptions(id))
   const queryClient = useQueryClient()
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [packageName, setPackageName] = useState("")
 
   const { project, packages } = projectData
+  const canCreatePackage = accessData.access === "full"
 
   const createPackage = useMutation({
     mutationFn: (name: string) =>
@@ -84,7 +92,9 @@ function RouteComponent() {
             >
               <Settings className="size-4" />
             </Link>
-            <Button onClick={() => setDrawerOpen(true)}>New package</Button>
+            {canCreatePackage && (
+              <Button onClick={() => setDrawerOpen(true)}>New package</Button>
+            )}
           </div>
         </div>
 

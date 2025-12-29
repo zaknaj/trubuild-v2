@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query"
 import {
   getActiveOrgFn,
+  getCurrentUserOrgRoleFn,
   getOrgMembersFn,
   getOrgPendingInvitesFn,
   getOrgsFn,
@@ -46,6 +47,11 @@ export const orgMembersQueryOptions = queryOptions({
 export const orgPendingInvitesQueryOptions = queryOptions({
   queryKey: ["org", "pending-invites"],
   queryFn: getOrgPendingInvitesFn,
+})
+
+export const currentUserOrgRoleQueryOptions = queryOptions({
+  queryKey: ["org", "current-user-role"],
+  queryFn: getCurrentUserOrgRoleFn,
 })
 
 // Project

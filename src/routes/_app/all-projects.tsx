@@ -14,21 +14,29 @@ import { createProjectFn } from "@/fn"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { projectsQueryOptions } from "@/lib/query-options"
+import {
+  projectsQueryOptions,
+  currentUserOrgRoleQueryOptions,
+} from "@/lib/query-options"
 import type { Project } from "@/lib/types"
 
 export const Route = createFileRoute("/_app/all-projects")({
   loader: ({ context }) => {
     void context.queryClient.ensureQueryData(projectsQueryOptions)
+    void context.queryClient.ensureQueryData(currentUserOrgRoleQueryOptions)
   },
   component: RouteComponent,
 })
 
 function RouteComponent() {
   const { data: projects } = useSuspenseQuery(projectsQueryOptions)
+  const { data: userRole } = useSuspenseQuery(currentUserOrgRoleQueryOptions)
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
   const [projectName, setProjectName] = useState("")
+
+  const canCreateProject =
+    userRole.role === "org-admin" || userRole.role === "owner"
 
   const createProject = useMutation({
     mutationFn: (name: string) => createProjectFn({ data: { name } }),
@@ -66,7 +74,9 @@ function RouteComponent() {
               Projects in your active organization.
             </p>
           </div>
-          <Button onClick={() => setIsOpen(true)}>New project</Button>
+          {canCreateProject && (
+            <Button onClick={() => setIsOpen(true)}>New project</Button>
+          )}
         </div>
 
         {projects.length === 0 ? (

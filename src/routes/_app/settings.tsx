@@ -53,7 +53,7 @@ function RouteComponent() {
   const queryClient = useQueryClient()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [email, setEmail] = useState("")
-  const [role, setRole] = useState<"admin" | "owner" | "member">("member")
+  const [role, setRole] = useState<"org-admin" | "owner" | "member">("member")
 
   const activeOrg = orgs?.find(
     (o) => o.id === session?.session?.activeOrganizationId
@@ -72,8 +72,8 @@ function RouteComponent() {
   const currentUserRole = members.find(
     (m: Member) => m.userId === session?.user?.id
   )?.role
-  const canInvite = currentUserRole === "admin" || currentUserRole === "owner"
-  const canEditOrg = currentUserRole === "admin" || currentUserRole === "owner"
+  const canInvite = currentUserRole === "org-admin" || currentUserRole === "owner"
+  const canEditOrg = currentUserRole === "org-admin" || currentUserRole === "owner"
 
   const updateOrg = useMutation({
     mutationFn: (name: string) => updateOrganizationFn({ data: { name } }),
@@ -350,13 +350,13 @@ function RouteComponent() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="org-admin">Admin</SelectItem>
                     <SelectItem value="owner">Owner</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Members can view, admins can manage projects, owners have full
-                  control.
+                  Members can view, org-admins can manage projects, owners have
+                  full control.
                 </p>
               </div>
 

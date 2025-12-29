@@ -1,26 +1,13 @@
-export type Member = {
-  id: string
-  role: string
-  userId: string | null // null = pending (user hasn't signed up yet)
-  email: string
-  userName: string | null
-  userImage: string | null
-}
+import type {
+  listProjectsFn,
+  getProjectMembersFn,
+  getPackageWithAssetsFn,
+} from "@/fn"
 
-export type Project = {
-  id: string
-  name: string
-  userId: string
-  organizationId: string
-}
-
-export type Package = {
-  id: string
-  name: string
-}
-
-export type Asset = {
-  id: string
-  name: string
-}
+// Inferred from server function return types - stays in sync automatically
+export type Project = Awaited<ReturnType<typeof listProjectsFn>>[number]
+export type Member = Awaited<ReturnType<typeof getProjectMembersFn>>[number]
+export type PackageDetail = Awaited<ReturnType<typeof getPackageWithAssetsFn>>
+export type Package = PackageDetail["package"]
+export type Asset = PackageDetail["assets"][number]
 

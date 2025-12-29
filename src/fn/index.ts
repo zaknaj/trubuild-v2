@@ -15,7 +15,7 @@ import { getRequestHeaders } from "@tanstack/react-start/server"
 import { and, desc, eq, or, isNull } from "drizzle-orm"
 import { z } from "zod"
 import { getProjectAccess, getPackageAccess } from "@/lib/permissions"
-import { getAuthContext } from "./server-fn"
+import { getAuthContext, requireOrgAdmin } from "./server-fn"
 import { ERRORS } from "@/lib/errors"
 
 // ============================================================================
@@ -141,7 +141,7 @@ export const setOrgCreatorAsAdminFn = createServerFn({ method: "POST" })
     const ctx = await getAuthContext(false)
     await db
       .update(member)
-      .set({ role: "admin" })
+      .set({ role: "org-admin" })
       .where(
         and(
           eq(member.userId, ctx.userId),
@@ -155,26 +155,8 @@ export const updateOrganizationFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ name: z.string().trim().min(1) }))
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
+    await requireOrgAdmin(ctx)
     const headers = getRequestHeaders()
-
-    // Check if user is admin/owner
-    const [orgMember] = await db
-      .select({ role: member.role })
-      .from(member)
-      .where(
-        and(
-          eq(member.userId, ctx.userId),
-          eq(member.organizationId, ctx.activeOrgId)
-        )
-      )
-      .limit(1)
-
-    if (
-      !orgMember ||
-      (orgMember.role !== "admin" && orgMember.role !== "owner")
-    ) {
-      throw new Error("You don't have permission to update organization settings")
-    }
 
     await auth.api.updateOrganization({
       headers,
@@ -203,6 +185,22 @@ export const updateProfileFn = createServerFn({ method: "POST" })
 // ============================================================================
 // Organization Members & Invitations
 // ============================================================================
+
+export const getCurrentUserOrgRoleFn = createServerFn().handler(async () => {
+  const ctx = await getAuthContext()
+  const [orgMember] = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(
+      and(
+        eq(member.userId, ctx.userId),
+        eq(member.organizationId, ctx.activeOrgId)
+      )
+    )
+    .limit(1)
+
+  return { role: orgMember?.role ?? null }
+})
 
 export const getOrgMembersFn = createServerFn().handler(async () => {
   const ctx = await getAuthContext()
@@ -246,31 +244,13 @@ export const inviteMemberFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       email: z.email(),
-      role: z.enum(["admin", "owner", "member"]),
+      role: z.enum(["org-admin", "owner", "member"]),
     })
   )
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
+    await requireOrgAdmin(ctx)
     const headers = getRequestHeaders()
-
-    // Check if user is admin/owner
-    const [orgMember] = await db
-      .select({ role: member.role })
-      .from(member)
-      .where(
-        and(
-          eq(member.userId, ctx.userId),
-          eq(member.organizationId, ctx.activeOrgId)
-        )
-      )
-      .limit(1)
-
-    if (
-      !orgMember ||
-      (orgMember.role !== "admin" && orgMember.role !== "owner")
-    ) {
-      throw new Error(ERRORS.NO_PERMISSION_INVITE("organization"))
-    }
 
     await auth.api.createInvitation({
       headers,
@@ -301,7 +281,7 @@ export const listProjectsFn = createServerFn().handler(async () => {
     )
     .limit(1)
 
-  if (orgMember?.role === "admin") {
+  if (orgMember?.role === "org-admin") {
     const projects = await db
       .select({
         id: proj.id,
@@ -346,6 +326,7 @@ export const createProjectFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ name: z.string().trim().min(1) }))
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
+    await requireOrgAdmin(ctx)
 
     const [project] = await db
       .insert(proj)
@@ -431,7 +412,8 @@ export const createPackageFn = createServerFn({ method: "POST" })
       data.projectId,
       ctx.activeOrgId
     )
-    if (access === "none") throw new Error(ERRORS.NO_ACCESS("project"))
+    if (access !== "full")
+      throw new Error("You don't have permission to create packages")
 
     const [newPackage] = await db
       .insert(pkg)

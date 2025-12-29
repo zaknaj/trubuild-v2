@@ -1,6 +1,9 @@
 import { auth } from "@/auth/auth"
 import { getRequestHeaders } from "@tanstack/react-start/server"
 import { ERRORS } from "@/lib/errors"
+import { db } from "@/db"
+import { member } from "@/db/schema"
+import { and, eq } from "drizzle-orm"
 
 export type AuthContext = {
   userId: string
@@ -39,4 +42,22 @@ export async function getAuthContext<T extends boolean = true>(
   return { userId, userEmail, activeOrgId } as T extends false
     ? AuthContextNoOrg
     : AuthContext
+}
+
+/**
+ * Require org admin/owner role - throws if user lacks permission
+ */
+export async function requireOrgAdmin(ctx: AuthContext) {
+  const [orgMember] = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(
+      and(eq(member.userId, ctx.userId), eq(member.organizationId, ctx.activeOrgId))
+    )
+    .limit(1)
+
+  if (!orgMember || (orgMember.role !== "org-admin" && orgMember.role !== "owner")) {
+    throw new Error(ERRORS.NO_PERMISSION_ADMIN)
+  }
+  return orgMember
 }

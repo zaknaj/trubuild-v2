@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppAllProjectsRouteImport } from './routes/_app/all-projects'
+import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppProjectIdRouteImport } from './routes/_app/project.$id'
 import { Route as AppPackageIdRouteImport } from './routes/_app/package.$id'
@@ -47,6 +48,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const AppAllProjectsRoute = AppAllProjectsRouteImport.update({
   id: '/all-projects',
   path: '/all-projects',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -102,6 +108,7 @@ const AppPackageIdCommAssetIdRoute = AppPackageIdCommAssetIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
+  '/admin': typeof AppAdminRoute
   '/all-projects': typeof AppAllProjectsRoute
   '/settings': typeof AppSettingsRoute
   '/': typeof AppIndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/admin': typeof AppAdminRoute
   '/all-projects': typeof AppAllProjectsRoute
   '/settings': typeof AppSettingsRoute
   '/': typeof AppIndexRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/_app/admin': typeof AppAdminRoute
   '/_app/all-projects': typeof AppAllProjectsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/': typeof AppIndexRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/login'
+    | '/admin'
     | '/all-projects'
     | '/settings'
     | '/'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/admin'
     | '/all-projects'
     | '/settings'
     | '/'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/login'
+    | '/_app/admin'
     | '/_app/all-projects'
     | '/_app/settings'
     | '/_app/'
@@ -239,6 +251,13 @@ declare module '@tanstack/react-router' {
       path: '/all-projects'
       fullPath: '/all-projects'
       preLoaderRoute: typeof AppAllProjectsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
     '/api/auth/$': {
@@ -358,6 +377,7 @@ const AppProjectIdRouteWithChildren = AppProjectIdRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
+  AppAdminRoute: typeof AppAdminRoute
   AppAllProjectsRoute: typeof AppAllProjectsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -366,6 +386,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAdminRoute: AppAdminRoute,
   AppAllProjectsRoute: AppAllProjectsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
