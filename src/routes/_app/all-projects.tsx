@@ -9,13 +9,13 @@ import {
 } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PageSidebar } from "@/components/PageSidebar"
 import { createProjectFn } from "@/fn"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { projectsQueryOptions } from "@/lib/query-options"
 import type { Project } from "@/lib/types"
-import { usePageSidebar } from "@/hooks/use-page-sidebar"
 
 export const Route = createFileRoute("/_app/all-projects")({
   loader: ({ context }) => {
@@ -29,8 +29,6 @@ function RouteComponent() {
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
   const [projectName, setProjectName] = useState("")
-
-  usePageSidebar(<div className="font-medium">all-projects</div>)
 
   const createProject = useMutation({
     mutationFn: (name: string) => createProjectFn({ data: { name } }),
@@ -54,91 +52,96 @@ function RouteComponent() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-[600px] mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            All projects
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Projects in your active organization.
-          </p>
+    <>
+      <PageSidebar>
+        <div className="font-medium">all-projects</div>
+      </PageSidebar>
+      <div className="p-6 space-y-6 max-w-[600px] mx-auto">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold text-slate-900">
+              All projects
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Projects in your active organization.
+            </p>
+          </div>
+          <Button onClick={() => setIsOpen(true)}>New project</Button>
         </div>
-        <Button onClick={() => setIsOpen(true)}>New project</Button>
-      </div>
 
-      {projects.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-200 bg-white/70 p-10 text-center text-sm text-muted-foreground">
-          You do not have any projects yet. Create one to get started.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {projects.map((project: Project) => (
-            <div
-              key={project.id}
-              className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-base font-semibold text-slate-900">
-                    {project.name}
-                  </p>
-                </div>
-                <Link
-                  to="/project/$id"
-                  params={{ id: project.id }}
-                  className={buttonVariants({ variant: "ghost", size: "sm" })}
-                >
-                  View
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <Drawer open={isOpen} direction="right" onClose={closeDrawer}>
-        <DrawerContent className="min-w-[500px]">
-          <form className="space-y-6" onSubmit={handleCreate}>
-            <DrawerHeader>
-              <DrawerTitle>Create Project</DrawerTitle>
-              <DrawerDescription>
-                Create a new project for your organization.
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="px-6 space-y-2">
-              <Label htmlFor="project-name">Project name</Label>
-              <Input
-                id="project-name"
-                placeholder="Project Nova"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                disabled={createProject.isPending}
-                autoFocus
-              />
-              {createProject.error ? (
-                <p className="text-sm text-red-500">
-                  {createProject.error instanceof Error
-                    ? createProject.error.message
-                    : "Unable to create project."}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Projects are created inside your active organization.
-                </p>
-              )}
-            </div>
-            <DrawerFooter>
-              <Button
-                type="submit"
-                disabled={createProject.isPending || !projectName.trim()}
+        {projects.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-slate-200 bg-white/70 p-10 text-center text-sm text-muted-foreground">
+            You do not have any projects yet. Create one to get started.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {projects.map((project: Project) => (
+              <div
+                key={project.id}
+                className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
               >
-                {createProject.isPending ? "Creating..." : "Create project"}
-              </Button>
-            </DrawerFooter>
-          </form>
-        </DrawerContent>
-      </Drawer>
-    </div>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-base font-semibold text-slate-900">
+                      {project.name}
+                    </p>
+                  </div>
+                  <Link
+                    to="/project/$id"
+                    params={{ id: project.id }}
+                    className={buttonVariants({ variant: "ghost", size: "sm" })}
+                  >
+                    View
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Drawer open={isOpen} direction="right" onClose={closeDrawer}>
+          <DrawerContent className="min-w-[500px]">
+            <form className="space-y-6" onSubmit={handleCreate}>
+              <DrawerHeader>
+                <DrawerTitle>Create Project</DrawerTitle>
+                <DrawerDescription>
+                  Create a new project for your organization.
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="px-6 space-y-2">
+                <Label htmlFor="project-name">Project name</Label>
+                <Input
+                  id="project-name"
+                  placeholder="Project Nova"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  disabled={createProject.isPending}
+                  autoFocus
+                />
+                {createProject.error ? (
+                  <p className="text-sm text-red-500">
+                    {createProject.error instanceof Error
+                      ? createProject.error.message
+                      : "Unable to create project."}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Projects are created inside your active organization.
+                  </p>
+                )}
+              </div>
+              <DrawerFooter>
+                <Button
+                  type="submit"
+                  disabled={createProject.isPending || !projectName.trim()}
+                >
+                  {createProject.isPending ? "Creating..." : "Create project"}
+                </Button>
+              </DrawerFooter>
+            </form>
+          </DrawerContent>
+        </Drawer>
+      </div>
+    </>
   )
 }

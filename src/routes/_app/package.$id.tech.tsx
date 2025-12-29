@@ -1,12 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { usePageSidebar } from "@/hooks/use-page-sidebar"
+import { createFileRoute } from "@tanstack/react-router"
+import { PageSidebar } from "@/components/PageSidebar"
 
-export const Route = createFileRoute('/_app/package/$id/tech')({
+export const Route = createFileRoute("/_app/package/$id/tech")({
   component: RouteComponent,
 })
 
 function RouteComponent() {
-  usePageSidebar(<div className="font-medium">package-tech</div>)
-
-  return <div>Hello "/_app/package/$id/tech"!</div>
+  return (
+    <>
+      <PageSidebar>
+        <div className="font-medium">package-tech</div>
+      </PageSidebar>
+      <div>Hello "/_app/package/$id/tech"!</div>
+    </>
+  )
 }
