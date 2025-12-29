@@ -75,8 +75,14 @@ function LoginPage() {
     })
     if (signUp.data) {
       await linkPendingMembershipsFn()
-      setLoginState("create-org")
-      setIsLoading(false)
+      // Re-check if user now has orgs (from accepted invitations)
+      const orgs = await getOrgsFn()
+      if (orgs.length === 0) {
+        setLoginState("create-org")
+        setIsLoading(false)
+        return
+      }
+      window.location.href = "/"
       return
     }
 

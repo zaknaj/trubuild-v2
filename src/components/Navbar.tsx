@@ -6,7 +6,7 @@ import { Columns3, LayoutDashboard, Settings } from "lucide-react"
 
 export const Navbar = () => {
   return (
-    <div className="h-[67px] flex items-center px-7 text-white pb-2 justify-between">
+    <div className="h-[67px] shrink-0 flex items-center px-7 text-white pb-2 justify-between">
       <div className="flex-1 flex gap-3 items-center">
         <img src="/logo-app.svg" alt="logo" className="w-7 h-7" />
         <div className="w-[1.5px] h-4 opacity-20 bg-white"></div>

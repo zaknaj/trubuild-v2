@@ -2,9 +2,12 @@ import { queryOptions } from "@tanstack/react-query"
 import {
   getActiveOrgFn,
   getOrgMembersFn,
+  getOrgPendingInvitesFn,
   getOrgsFn,
+  getPackageAccessFn,
   getPackageMembersFn,
   getPackageWithAssetsFn,
+  getProjectAccessFn,
   getProjectMembersFn,
   getProjectWithPackagesFn,
   getSession,
@@ -40,6 +43,11 @@ export const orgMembersQueryOptions = queryOptions({
   queryFn: getOrgMembersFn,
 })
 
+export const orgPendingInvitesQueryOptions = queryOptions({
+  queryKey: ["org", "pending-invites"],
+  queryFn: getOrgPendingInvitesFn,
+})
+
 // Project
 export const projectDetailQueryOptions = (projectId: string) =>
   queryOptions({
@@ -53,6 +61,12 @@ export const projectMembersQueryOptions = (projectId: string) =>
     queryFn: () => getProjectMembersFn({ data: { projectId } }),
   })
 
+export const projectAccessQueryOptions = (projectId: string) =>
+  queryOptions({
+    queryKey: ["project", projectId, "access"],
+    queryFn: () => getProjectAccessFn({ data: { projectId } }),
+  })
+
 // Package
 export const packageDetailQueryOptions = (packageId: string) =>
   queryOptions({
@@ -64,4 +78,10 @@ export const packageMembersQueryOptions = (packageId: string) =>
   queryOptions({
     queryKey: ["package", packageId, "members"],
     queryFn: () => getPackageMembersFn({ data: { packageId } }),
+  })
+
+export const packageAccessQueryOptions = (packageId: string) =>
+  queryOptions({
+    queryKey: ["package", packageId, "access"],
+    queryFn: () => getPackageAccessFn({ data: { packageId } }),
   })

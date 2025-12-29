@@ -12,7 +12,7 @@ function RouteComponent() {
       <PageSidebar>
         <div className="font-medium">home</div>
       </PageSidebar>
-      <div className="p-5">
+      <div className="p-5 mx-auto w-150 ring">
         <Link to="/all-projects" className={buttonVariants()}>
           View Projects
         </Link>

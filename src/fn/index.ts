@@ -8,6 +8,7 @@ import {
   user,
   projectMember,
   packageMember,
+  invitation,
 } from "@/db/schema"
 import { createServerFn } from "@tanstack/react-start"
 import { getRequestHeaders } from "@tanstack/react-start/server"
@@ -36,6 +37,36 @@ export const linkPendingMembershipsFn = createServerFn({
 
 /** Link pending project/package memberships and add user to orgs */
 async function linkPendingMemberships(userId: string, email: string) {
+  // Accept pending organization invitations
+  const pendingInvitations = await db
+    .select({
+      id: invitation.id,
+      organizationId: invitation.organizationId,
+      role: invitation.role,
+    })
+    .from(invitation)
+    .where(and(eq(invitation.email, email), eq(invitation.status, "pending")))
+
+  for (const inv of pendingInvitations) {
+    // Add user as member to the organization
+    await db
+      .insert(member)
+      .values({
+        id: globalThis.crypto.randomUUID(),
+        userId,
+        organizationId: inv.organizationId,
+        role: inv.role ?? "member",
+        createdAt: new Date(),
+      })
+      .onConflictDoNothing()
+
+    // Mark invitation as accepted
+    await db
+      .update(invitation)
+      .set({ status: "accepted" })
+      .where(eq(invitation.id, inv.id))
+  }
+
   // Link pending project memberships
   await db
     .update(projectMember)
@@ -120,6 +151,55 @@ export const setOrgCreatorAsAdminFn = createServerFn({ method: "POST" })
     return { success: true }
   })
 
+export const updateOrganizationFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ name: z.string().trim().min(1) }))
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    const headers = getRequestHeaders()
+
+    // Check if user is admin/owner
+    const [orgMember] = await db
+      .select({ role: member.role })
+      .from(member)
+      .where(
+        and(
+          eq(member.userId, ctx.userId),
+          eq(member.organizationId, ctx.activeOrgId)
+        )
+      )
+      .limit(1)
+
+    if (
+      !orgMember ||
+      (orgMember.role !== "admin" && orgMember.role !== "owner")
+    ) {
+      throw new Error("You don't have permission to update organization settings")
+    }
+
+    await auth.api.updateOrganization({
+      headers,
+      body: {
+        organizationId: ctx.activeOrgId,
+        data: { name: data.name },
+      },
+    })
+
+    return { success: true }
+  })
+
+export const updateProfileFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ name: z.string().trim().min(1) }))
+  .handler(async ({ data }) => {
+    const headers = getRequestHeaders()
+
+    await auth.api.updateUser({
+      headers,
+      body: { name: data.name },
+    })
+
+    return { success: true }
+  })
+
 // ============================================================================
 // Organization Members & Invitations
 // ============================================================================
@@ -140,6 +220,26 @@ export const getOrgMembersFn = createServerFn().handler(async () => {
     .where(eq(member.organizationId, ctx.activeOrgId))
 
   return members
+})
+
+export const getOrgPendingInvitesFn = createServerFn().handler(async () => {
+  const ctx = await getAuthContext()
+  const pending = await db
+    .select({
+      id: invitation.id,
+      email: invitation.email,
+      role: invitation.role,
+      createdAt: invitation.createdAt,
+    })
+    .from(invitation)
+    .where(
+      and(
+        eq(invitation.organizationId, ctx.activeOrgId),
+        eq(invitation.status, "pending")
+      )
+    )
+
+  return pending
 })
 
 export const inviteMemberFn = createServerFn({ method: "POST" })
@@ -480,6 +580,18 @@ export const getProjectMembersFn = createServerFn()
     }))
   })
 
+export const getProjectAccessFn = createServerFn()
+  .inputValidator(z.object({ projectId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    const { access, orgRole, projectRole, isCreator } = await getProjectAccess(
+      ctx.userId,
+      data.projectId,
+      ctx.activeOrgId
+    )
+    return { access, orgRole, projectRole, isCreator }
+  })
+
 export const addProjectMemberFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -518,6 +630,35 @@ export const addProjectMemberFn = createServerFn({ method: "POST" })
     return { success: true }
   })
 
+export const removeProjectMemberFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      projectId: z.uuid(),
+      email: z.email(),
+    })
+  )
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    const { access } = await getProjectAccess(
+      ctx.userId,
+      data.projectId,
+      ctx.activeOrgId
+    )
+    if (access !== "full")
+      throw new Error(ERRORS.NO_PERMISSION_REMOVE("project"))
+
+    await db
+      .delete(projectMember)
+      .where(
+        and(
+          eq(projectMember.projectId, data.projectId),
+          eq(projectMember.email, data.email)
+        )
+      )
+
+    return { success: true }
+  })
+
 // ============================================================================
 // Package Members & Invitations
 // ============================================================================
@@ -549,6 +690,15 @@ export const getPackageMembersFn = createServerFn()
       ...m,
       id: `${data.packageId}-${m.email}`,
     }))
+  })
+
+export const getPackageAccessFn = createServerFn()
+  .inputValidator(z.object({ packageId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    const { access, orgRole, projectRole, packageRole, isProjectCreator } =
+      await getPackageAccess(ctx.userId, data.packageId, ctx.activeOrgId)
+    return { access, orgRole, projectRole, packageRole, isProjectCreator }
   })
 
 export const addPackageMemberFn = createServerFn({ method: "POST" })
@@ -585,6 +735,35 @@ export const addPackageMemberFn = createServerFn({ method: "POST" })
         role: data.role,
       })
       .onConflictDoNothing()
+
+    return { success: true }
+  })
+
+export const removePackageMemberFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      packageId: z.uuid(),
+      email: z.email(),
+    })
+  )
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    const { access } = await getPackageAccess(
+      ctx.userId,
+      data.packageId,
+      ctx.activeOrgId
+    )
+    if (access !== "full")
+      throw new Error(ERRORS.NO_PERMISSION_REMOVE("package"))
+
+    await db
+      .delete(packageMember)
+      .where(
+        and(
+          eq(packageMember.packageId, data.packageId),
+          eq(packageMember.email, data.email)
+        )
+      )
 
     return { success: true }
   })
