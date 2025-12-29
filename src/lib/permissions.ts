@@ -33,13 +33,21 @@ export async function getProjectAccess(
     )
     .leftJoin(
       projectMember,
-      and(eq(projectMember.userId, userId), eq(projectMember.projectId, projectId))
+      and(
+        eq(projectMember.userId, userId),
+        eq(projectMember.projectId, projectId)
+      )
     )
     .where(eq(proj.id, projectId))
     .limit(1)
 
   if (!result) {
-    return { orgRole: null, projectRole: null, isCreator: false, access: "none" }
+    return {
+      orgRole: null,
+      projectRole: null,
+      isCreator: false,
+      access: "none",
+    }
   }
 
   const orgRole = result.orgRole as OrgRole | null
@@ -48,7 +56,7 @@ export async function getProjectAccess(
 
   // Determine access level
   let access: AccessLevel = "none"
-  
+
   if (orgRole === "admin" || isCreator || projectRole === "project_lead") {
     access = "full"
   } else if (projectRole === "commercial_lead") {
@@ -82,7 +90,6 @@ export async function getPackageAccess(
       projectRole: projectMember.role,
       packageRole: packageMember.role,
       projectCreatorId: proj.userId,
-      packageCreatorId: pkg.userId,
       projectId: pkg.projectId,
     })
     .from(pkg)
@@ -93,11 +100,17 @@ export async function getPackageAccess(
     )
     .leftJoin(
       projectMember,
-      and(eq(projectMember.userId, userId), eq(projectMember.projectId, pkg.projectId))
+      and(
+        eq(projectMember.userId, userId),
+        eq(projectMember.projectId, pkg.projectId)
+      )
     )
     .leftJoin(
       packageMember,
-      and(eq(packageMember.userId, userId), eq(packageMember.packageId, packageId))
+      and(
+        eq(packageMember.userId, userId),
+        eq(packageMember.packageId, packageId)
+      )
     )
     .where(eq(pkg.id, packageId))
     .limit(1)
@@ -118,13 +131,18 @@ export async function getPackageAccess(
   const projectRole = result.projectRole as ProjectRole | null
   const packageRole = result.packageRole as PackageRole | null
   const isProjectCreator = result.projectCreatorId === userId
-  const isPackageCreator = result.packageCreatorId === userId
+  // Package creator is the same as project creator since packages inherit from projects
+  const isPackageCreator = isProjectCreator
   const projectId = result.projectId
 
   // Determine access level (check package-level first, then project-level)
   let access: AccessLevel = "none"
 
-  if (orgRole === "admin" || isPackageCreator || packageRole === "package_lead") {
+  if (
+    orgRole === "admin" ||
+    isPackageCreator ||
+    packageRole === "package_lead"
+  ) {
     access = "full"
   } else if (packageRole === "commercial_team") {
     access = "commercial"
@@ -147,40 +165,4 @@ export async function getPackageAccess(
     access,
     projectId,
   }
-}
-
-/**
- * Check if user can invite to project
- */
-export async function canInviteToProject(
-  userId: string,
-  projectId: string,
-  organizationId: string
-): Promise<boolean> {
-  const { orgRole, projectRole, isCreator } = await getProjectAccess(
-    userId,
-    projectId,
-    organizationId
-  )
-  return orgRole === "admin" || isCreator || projectRole === "project_lead"
-}
-
-/**
- * Check if user can invite to package
- */
-export async function canInviteToPackage(
-  userId: string,
-  packageId: string,
-  organizationId: string
-): Promise<boolean> {
-  const { orgRole, projectRole, packageRole, isProjectCreator, isPackageCreator } =
-    await getPackageAccess(userId, packageId, organizationId)
-
-  return (
-    orgRole === "admin" ||
-    isPackageCreator ||
-    packageRole === "package_lead" ||
-    isProjectCreator ||
-    projectRole === "project_lead"
-  )
 }

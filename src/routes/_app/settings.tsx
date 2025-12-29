@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { inviteMemberFn } from "@/fn"
-import { FormEvent, useEffect, useState } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,140 +20,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { UserPlus, Mail, FolderOpen, Package } from "lucide-react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import type { RouterContext } from "@/router"
-import {
-  orgInvitationsQueryOptions,
-  orgMembersQueryOptions,
-  orgPackageInvitationsQueryOptions,
-  orgProjectInvitationsQueryOptions,
-} from "@/lib/query-options"
+import { UserPlus } from "lucide-react"
+import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { orgMembersQueryOptions, sessionQueryOptions } from "@/lib/query-options"
+import type { Member } from "@/lib/types"
+import { usePageSidebar } from "@/hooks/use-page-sidebar"
 
 export const Route = createFileRoute("/_app/settings")({
   component: RouteComponent,
   loader: ({ context }) => {
-    const { queryClient } = context as RouterContext
-    void queryClient.ensureQueryData(orgMembersQueryOptions)
-    void queryClient.ensureQueryData(orgInvitationsQueryOptions)
-    void queryClient.ensureQueryData(orgProjectInvitationsQueryOptions)
-    void queryClient.ensureQueryData(orgPackageInvitationsQueryOptions)
+    void context.queryClient.ensureQueryData(orgMembersQueryOptions)
   },
 })
 
-type OrgInvitation = {
-  id: string
-  email: string
-  role: string | null
-  status: string
-  expiresAt: string
-  createdAt: string | null
-}
-
-type Member = {
-  id: string
-  role: string
-  createdAt: string
-  userId: string
-  userName: string | null
-  userEmail: string
-  userImage: string | null
-}
-
-type ProjectInvitation = {
-  id: string
-  email: string
-  role: string
-  status: string
-  expiresAt: string
-  createdAt: string
-  projectId: string
-  projectName: string
-}
-
-type PackageInvitation = {
-  id: string
-  email: string
-  role: string
-  status: string
-  expiresAt: string
-  createdAt: string
-  packageId: string
-  packageName: string
-  projectId: string
-  projectName: string
-}
-
 function RouteComponent() {
-  const { data: members = [] } = useQuery(orgMembersQueryOptions)
-  const { data: initialOrgInvitations = [] } = useQuery(
-    orgInvitationsQueryOptions
-  )
-  const { data: projectInvitations = [] } = useQuery(
-    orgProjectInvitationsQueryOptions
-  )
-  const { data: packageInvitations = [] } = useQuery(
-    orgPackageInvitationsQueryOptions
-  )
-  const [invitations, setInvitations] =
-    useState<OrgInvitation[]>(initialOrgInvitations)
+  const { data: members } = useSuspenseQuery(orgMembersQueryOptions)
+  const { data: session } = useSuspenseQuery(sessionQueryOptions)
+  const queryClient = useQueryClient()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<"admin" | "owner" | "member">("member")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    setInvitations(initialOrgInvitations)
-  }, [initialOrgInvitations])
+  usePageSidebar(<div className="font-medium">settings</div>)
 
-  const handleInvite = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const trimmedEmail = email.trim()
-    if (!trimmedEmail) {
-      setError("Email is required")
-      return
-    }
+  const currentUserRole = members.find((m: Member) => m.userId === session?.user?.id)?.role
+  const canInvite = currentUserRole === "admin" || currentUserRole === "owner"
 
-    setIsSubmitting(true)
-    setError(null)
-
-    // Optimistically add to list and close drawer
-    const optimisticInvite: OrgInvitation = {
-      id: `temp-${Date.now()}`,
-      email: trimmedEmail,
-      role,
-      status: "pending",
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date().toISOString(),
-    }
-    setInvitations((prev) => [optimisticInvite, ...prev])
-    setIsInviteOpen(false)
-    setEmail("")
-    setRole("member")
-
-    try {
-      await inviteMemberFn({ data: { email: trimmedEmail, role } })
-      await queryClient.invalidateQueries({
-        queryKey: orgInvitationsQueryOptions.queryKey,
-      })
-    } catch (err) {
-      // Remove optimistic invite on error
-      setInvitations((prev) => prev.filter((i) => i.id !== optimisticInvite.id))
-      setError(err instanceof Error ? err.message : "Failed to send invitation")
-      setIsInviteOpen(true)
-      setEmail(trimmedEmail)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+  const inviteMember = useMutation({
+    mutationFn: (data: { email: string; role: typeof role }) =>
+      inviteMemberFn({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orgMembersQueryOptions.queryKey })
+      closeDrawer()
+    },
+  })
 
   const closeDrawer = () => {
     setIsInviteOpen(false)
     setEmail("")
     setRole("member")
-    setError(null)
+    inviteMember.reset()
+  }
+
+  const handleInvite = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) return
+    inviteMember.mutate({ email: trimmedEmail, role })
   }
 
   return (
@@ -162,15 +75,17 @@ function RouteComponent() {
 
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium">Members</h2>
-          <Button
-            size="sm"
-            onClick={() => setIsInviteOpen(true)}
-            className="gap-1.5"
-          >
-            <UserPlus className="size-4" />
-            Invite
-          </Button>
+          <h2 className="text-lg font-medium">Organization Members</h2>
+          {canInvite && (
+            <Button
+              size="sm"
+              onClick={() => setIsInviteOpen(true)}
+              className="gap-1.5"
+            >
+              <UserPlus className="size-4" />
+              Invite
+            </Button>
+          )}
         </div>
 
         <div className="border rounded-lg divide-y">
@@ -189,14 +104,18 @@ function RouteComponent() {
                   />
                 ) : (
                   <div className="size-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium uppercase text-muted-foreground">
-                    {m.userName?.charAt(0) || m.userEmail.charAt(0)}
+                    {m.userName?.charAt(0) || m.email.charAt(0)}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{m.userName}</p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {m.userEmail}
+                  <p className="font-medium truncate">
+                    {m.userName || m.email}
                   </p>
+                  {m.userName && (
+                    <p className="text-sm text-muted-foreground truncate">
+                      {m.email}
+                    </p>
+                  )}
                 </div>
                 <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
                   {m.role}
@@ -207,98 +126,13 @@ function RouteComponent() {
         </div>
       </section>
 
-      {(invitations.length > 0 ||
-        projectInvitations.length > 0 ||
-        packageInvitations.length > 0) && (
-        <section>
-          <h2 className="text-lg font-medium mb-4">Pending Invitations</h2>
-          <div className="border rounded-lg divide-y">
-            {/* Organization invitations */}
-            {invitations.map((inv) => (
-              <div key={inv.id} className="flex items-center gap-3 p-3">
-                <div className="size-9 rounded-full bg-amber-100 flex items-center justify-center">
-                  <Mail className="size-4 text-amber-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{inv.email}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Organization invitation
-                  </p>
-                </div>
-                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
-                  {inv.role || "member"}
-                </span>
-              </div>
-            ))}
-
-            {/* Project invitations */}
-            {projectInvitations.map((inv: ProjectInvitation) => (
-              <div key={inv.id} className="flex items-center gap-3 p-3">
-                <div className="size-9 rounded-full bg-blue-100 flex items-center justify-center">
-                  <FolderOpen className="size-4 text-blue-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{inv.email}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Project:{" "}
-                    <Link
-                      to="/project/$id"
-                      params={{ id: inv.projectId }}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {inv.projectName}
-                    </Link>
-                  </p>
-                </div>
-                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
-                  {inv.role.replace("_", " ")}
-                </span>
-              </div>
-            ))}
-
-            {/* Package invitations */}
-            {packageInvitations.map((inv: PackageInvitation) => (
-              <div key={inv.id} className="flex items-center gap-3 p-3">
-                <div className="size-9 rounded-full bg-purple-100 flex items-center justify-center">
-                  <Package className="size-4 text-purple-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{inv.email}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Package:{" "}
-                    <Link
-                      to="/package/$id"
-                      params={{ id: inv.packageId }}
-                      className="text-purple-600 hover:underline"
-                    >
-                      {inv.packageName}
-                    </Link>{" "}
-                    in{" "}
-                    <Link
-                      to="/project/$id"
-                      params={{ id: inv.projectId }}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {inv.projectName}
-                    </Link>
-                  </p>
-                </div>
-                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
-                  {inv.role.replace("_", " ")}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       <Drawer open={isInviteOpen} direction="right" onClose={closeDrawer}>
         <DrawerContent className="min-w-[400px]">
           <form onSubmit={handleInvite} className="flex flex-col h-full">
             <DrawerHeader>
               <DrawerTitle>Invite Member</DrawerTitle>
               <DrawerDescription>
-                Send an invitation to join your organization.
+                Invite someone to join your organization.
               </DrawerDescription>
             </DrawerHeader>
 
@@ -311,7 +145,7 @@ function RouteComponent() {
                   placeholder="colleague@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={inviteMember.isPending}
                   autoFocus
                 />
               </div>
@@ -321,7 +155,7 @@ function RouteComponent() {
                 <Select
                   value={role}
                   onValueChange={(v) => setRole(v as typeof role)}
-                  disabled={isSubmitting}
+                  disabled={inviteMember.isPending}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select role" />
@@ -338,7 +172,13 @@ function RouteComponent() {
                 </p>
               </div>
 
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {inviteMember.error && (
+                <p className="text-sm text-red-500">
+                  {inviteMember.error instanceof Error
+                    ? inviteMember.error.message
+                    : "Failed to send invitation"}
+                </p>
+              )}
             </div>
 
             <DrawerFooter className="flex-row gap-2">
@@ -349,10 +189,10 @@ function RouteComponent() {
               </DrawerClose>
               <Button
                 type="submit"
-                disabled={isSubmitting || !email.trim()}
+                disabled={inviteMember.isPending || !email.trim()}
                 className="flex-1"
               >
-                {isSubmitting ? "Sending..." : "Send Invitation"}
+                {inviteMember.isPending ? "Sending..." : "Send Invitation"}
               </Button>
             </DrawerFooter>
           </form>

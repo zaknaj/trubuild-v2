@@ -1,10 +1,20 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import {
+  HeadContent,
+  Scripts,
+  createRootRouteWithContext,
+} from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
+import type { QueryClient } from "@tanstack/react-query"
+import { Toaster } from "@/components/ui/sonner"
 
 import appCss from "../styles.css?url"
 
-export const Route = createRootRoute({
+interface RouterContext {
+  queryClient: QueryClient
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       {
@@ -28,6 +38,7 @@ export const Route = createRootRoute({
 
   shellComponent: RootDocument,
   notFoundComponent: () => <div>Not Found</div>,
+  pendingComponent: () => <div>...</div>,
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
@@ -38,6 +49,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <Toaster />
         <TanStackDevtools
           config={{
             position: "bottom-right",

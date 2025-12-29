@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppCreateOrgRouteImport } from './routes/_app/create-org'
 import { Route as AppAllProjectsRouteImport } from './routes/_app/all-projects'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppProjectIdRouteImport } from './routes/_app/project.$id'
@@ -40,6 +41,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCreateOrgRoute = AppCreateOrgRouteImport.update({
+  id: '/create-org',
+  path: '/create-org',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAllProjectsRoute = AppAllProjectsRouteImport.update({
@@ -91,6 +97,7 @@ const AppPackageIdCommAssetIdRoute = AppPackageIdCommAssetIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/all-projects': typeof AppAllProjectsRoute
+  '/create-org': typeof AppCreateOrgRoute
   '/settings': typeof AppSettingsRoute
   '/': typeof AppIndexRoute
   '/package/$id': typeof AppPackageIdRouteWithChildren
@@ -105,6 +112,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/all-projects': typeof AppAllProjectsRoute
+  '/create-org': typeof AppCreateOrgRoute
   '/settings': typeof AppSettingsRoute
   '/': typeof AppIndexRoute
   '/package/$id': typeof AppPackageIdRouteWithChildren
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/all-projects': typeof AppAllProjectsRoute
+  '/_app/create-org': typeof AppCreateOrgRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/': typeof AppIndexRoute
   '/_app/package/$id': typeof AppPackageIdRouteWithChildren
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/login'
     | '/all-projects'
+    | '/create-org'
     | '/settings'
     | '/'
     | '/package/$id'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/all-projects'
+    | '/create-org'
     | '/settings'
     | '/'
     | '/package/$id'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/all-projects'
+    | '/_app/create-org'
     | '/_app/settings'
     | '/_app/'
     | '/_app/package/$id'
@@ -212,6 +224,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/create-org': {
+      id: '/_app/create-org'
+      path: '/create-org'
+      fullPath: '/create-org'
+      preLoaderRoute: typeof AppCreateOrgRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/all-projects': {
@@ -321,6 +340,7 @@ const AppProjectIdRouteWithChildren = AppProjectIdRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAllProjectsRoute: typeof AppAllProjectsRoute
+  AppCreateOrgRoute: typeof AppCreateOrgRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppPackageIdRoute: typeof AppPackageIdRouteWithChildren
@@ -329,6 +349,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAllProjectsRoute: AppAllProjectsRoute,
+  AppCreateOrgRoute: AppCreateOrgRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
   AppPackageIdRoute: AppPackageIdRouteWithChildren,

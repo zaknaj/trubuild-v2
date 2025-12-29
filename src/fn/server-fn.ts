@@ -1,5 +1,6 @@
 import { auth } from "@/auth/auth"
 import { getRequestHeaders } from "@tanstack/react-start/server"
+import { ERRORS } from "@/lib/errors"
 
 export type AuthContext = {
   userId: string
@@ -14,27 +15,12 @@ export type AuthContextNoOrg = {
 }
 
 /**
- * Get authenticated context requiring an active organization
+ * Get authenticated context
+ * @param requireOrg - If true (default), requires an active organization
  */
-export async function getAuthContext(): Promise<AuthContext> {
-  const headers = getRequestHeaders()
-  const session = await auth.api.getSession({ headers })
-
-  const userId = session?.user?.id
-  const activeOrgId = session?.session?.activeOrganizationId
-  const userEmail = session?.user?.email
-
-  if (!userId || !activeOrgId || !userEmail) {
-    throw new Error("You must be logged in with an active organization.")
-  }
-
-  return { userId, activeOrgId, userEmail }
-}
-
-/**
- * Get authenticated context (no org required)
- */
-export async function getAuthContextNoOrg(): Promise<AuthContextNoOrg> {
+export async function getAuthContext<T extends boolean = true>(
+  requireOrg?: T
+): Promise<T extends false ? AuthContextNoOrg : AuthContext> {
   const headers = getRequestHeaders()
   const session = await auth.api.getSession({ headers })
 
@@ -43,24 +29,14 @@ export async function getAuthContextNoOrg(): Promise<AuthContextNoOrg> {
   const activeOrgId = session?.session?.activeOrganizationId ?? null
 
   if (!userId || !userEmail) {
-    throw new Error("You must be logged in.")
+    throw new Error(ERRORS.MUST_BE_LOGGED_IN)
   }
 
-  return { userId, userEmail, activeOrgId }
-}
+  if (requireOrg !== false && !activeOrgId) {
+    throw new Error(ERRORS.MUST_BE_LOGGED_IN_WITH_ORG)
+  }
 
-/**
- * Serialize dates for JSON transport
- */
-export const serializeDates = <
-  T extends {
-    createdAt: Date | null | undefined
-    updatedAt?: Date | null | undefined
-  },
->(
-  record: T
-) => ({
-  ...record,
-  createdAt: record.createdAt?.toISOString() ?? null,
-  updatedAt: record.updatedAt?.toISOString() ?? null,
-})
+  return { userId, userEmail, activeOrgId } as T extends false
+    ? AuthContextNoOrg
+    : AuthContext
+}
