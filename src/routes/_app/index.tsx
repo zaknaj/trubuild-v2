@@ -1,22 +1,9 @@
-import { buttonVariants } from "@/components/ui/button"
-import { PageSidebar } from "@/components/PageSidebar"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_app/")({
   component: RouteComponent,
 })
 
 function RouteComponent() {
-  return (
-    <>
-      <PageSidebar>
-        <div className="font-medium">home</div>
-      </PageSidebar>
-      <div className="p-5 mx-auto w-150 ring">
-        <Link to="/all-projects" className={buttonVariants()}>
-          View Projects
-        </Link>
-      </div>
-    </>
-  )
+  return null
 }
