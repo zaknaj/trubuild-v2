@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { PageSidebar } from "@/components/PageSidebar"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,11 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Popover,
-  PopoverContent,
-  PopoverAnchor,
-} from "@/components/ui/popover"
+import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover"
 import { UserPlus, Clock, X, Loader2 } from "lucide-react"
 import {
   useSuspenseQuery,
@@ -39,7 +34,9 @@ export const Route = createFileRoute("/_app/project/$id/settings")({
     void context.queryClient.ensureQueryData(
       projectMembersQueryOptions(params.id)
     )
-    void context.queryClient.ensureQueryData(projectAccessQueryOptions(params.id))
+    void context.queryClient.ensureQueryData(
+      projectAccessQueryOptions(params.id)
+    )
     void context.queryClient.ensureQueryData(orgMembersQueryOptions)
   },
   component: RouteComponent,
@@ -91,7 +88,9 @@ function RouteComponent() {
 
   const removeMember = useMutation({
     mutationFn: (memberEmail: string) =>
-      removeProjectMemberFn({ data: { projectId: project.id, email: memberEmail } }),
+      removeProjectMemberFn({
+        data: { projectId: project.id, email: memberEmail },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: projectMembersQueryOptions(id).queryKey,
@@ -137,9 +136,6 @@ function RouteComponent() {
 
   return (
     <>
-      <PageSidebar>
-        <div className="font-medium">project-settings</div>
-      </PageSidebar>
       <div className="p-6 space-y-8 max-w-[600px] mx-auto">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">

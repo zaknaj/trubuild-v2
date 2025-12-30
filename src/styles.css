@@ -5,9 +5,9 @@
 
 :root {
   font-family: "Inter", system-ui, Avenir, Helvetica, Arial, sans-serif;
-  font-feature-settings:
+  /* font-feature-settings:
     "ss02" on,
-    "ss03" on;
+    "ss03" on; */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -39,7 +39,7 @@
   --chart-3: oklch(0.59 0.20 277);
   --chart-4: oklch(0.5162 0.1801 314.47);
   --chart-5: oklch(0.46 0.21 277); */
-  --radius: 0.625rem;
+  --radius: 0.45rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.5162 0.1801 314.47);
@@ -162,10 +162,12 @@
     0 1px 0px rgba(255, 255, 255, 0.2) inset;
 }
 
-.sidebar {
-  width: 310px;
-  background: #fff;
+.sidemenu-shadow {
   box-shadow:
-    0 0 6px 0 rgba(0, 0, 0, 0.15),
-    0 0 24px 0 rgba(0, 0, 0, 0.1);
+    0 0 6px 0 rgba(0, 0, 0, 0.1),
+    0 0 16px 0 rgba(0, 0, 0, 0.1);
+}
+
+.modal-shadow {
+  box-shadow: 0 30px 100px -40px rgba(0, 0, 0, 0.7);
 }

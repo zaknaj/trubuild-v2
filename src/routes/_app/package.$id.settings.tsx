@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { PageSidebar } from "@/components/PageSidebar"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,7 +25,6 @@ import {
   projectMembersQueryOptions,
 } from "@/lib/query-options"
 import { addPackageMemberFn, removePackageMemberFn } from "@/fn"
-import type { Member } from "@/lib/types"
 
 export const Route = createFileRoute("/_app/package/$id/settings")({
   loader: async ({ params, context }) => {
@@ -74,7 +72,7 @@ function RouteComponent() {
   const canInvite = accessInfo.access === "full"
 
   // Filter org members who are not already package members
-  const packageMemberEmails = new Set(members.map((m: Member) => m.email))
+  const packageMemberEmails = new Set(members.map((m) => m.email))
   const availableOrgMembers = orgMembers.filter(
     (m) => !packageMemberEmails.has(m.email)
   )
@@ -143,21 +141,14 @@ function RouteComponent() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const activeMembers = members.filter((m: Member) => m.userId !== null)
-  const pendingMembers = members.filter((m: Member) => m.userId === null)
+  const activeMembers = members.filter((m) => m.userId !== null)
+  const pendingMembers = members.filter((m) => m.userId === null)
 
-  const activeProjectMembers = projectMembers.filter(
-    (m: Member) => m.userId !== null
-  )
-  const pendingProjectMembers = projectMembers.filter(
-    (m: Member) => m.userId === null
-  )
+  const activeProjectMembers = projectMembers.filter((m) => m.userId !== null)
+  const pendingProjectMembers = projectMembers.filter((m) => m.userId === null)
 
   return (
     <>
-      <PageSidebar>
-        <div className="font-medium">package-settings</div>
-      </PageSidebar>
       <div className="p-6 space-y-8 max-w-[600px] mx-auto">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -302,7 +293,7 @@ function RouteComponent() {
               </div>
             ) : (
               <>
-                {activeMembers.map((m: Member) => (
+                {activeMembers.map((m) => (
                   <div key={m.id} className="flex items-center gap-3 p-3">
                     {m.userImage ? (
                       <img
@@ -345,7 +336,7 @@ function RouteComponent() {
                     )}
                   </div>
                 ))}
-                {pendingMembers.map((m: Member) => (
+                {pendingMembers.map((m) => (
                   <div
                     key={m.id}
                     className="flex items-center gap-3 p-3 bg-amber-50/50"
@@ -405,7 +396,7 @@ function RouteComponent() {
               </div>
             ) : (
               <>
-                {activeProjectMembers.map((m: Member) => (
+                {activeProjectMembers.map((m) => (
                   <div key={m.id} className="flex items-center gap-3 p-3">
                     {m.userImage ? (
                       <img
@@ -433,7 +424,7 @@ function RouteComponent() {
                     </span>
                   </div>
                 ))}
-                {pendingProjectMembers.map((m: Member) => (
+                {pendingProjectMembers.map((m) => (
                   <div
                     key={m.id}
                     className="flex items-center gap-3 p-3 bg-amber-50/50"

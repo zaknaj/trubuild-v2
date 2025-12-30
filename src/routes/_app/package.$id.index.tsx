@@ -14,9 +14,12 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import type { Asset } from "@/lib/types"
 import { Settings } from "lucide-react"
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import {
+  useSuspenseQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { packageDetailQueryOptions } from "@/lib/query-options"
-import { PageSidebar } from "@/components/PageSidebar"
 
 export const Route = createFileRoute("/_app/package/$id/")({
   loader: ({ params, context }) => {
@@ -63,16 +66,15 @@ function RouteComponent() {
 
   return (
     <>
-      <PageSidebar>
-        <div className="font-medium">package</div>
-      </PageSidebar>
       <div className="p-6 space-y-6 max-w-[600px] mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               Package
             </p>
-            <h1 className="text-2xl font-semibold text-slate-900">{pkg.name}</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              {pkg.name}
+            </h1>
             <Link
               to="/project/$id"
               params={{ id: project.id }}
@@ -136,7 +138,8 @@ function RouteComponent() {
               <DrawerHeader>
                 <DrawerTitle>Create asset</DrawerTitle>
                 <DrawerDescription>
-                  Assets represent individual files, components, or work outputs.
+                  Assets represent individual files, components, or work
+                  outputs.
                 </DrawerDescription>
               </DrawerHeader>
               <div className="px-6 space-y-2">

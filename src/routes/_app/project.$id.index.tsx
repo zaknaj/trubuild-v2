@@ -14,12 +14,15 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import type { Package } from "@/lib/types"
 import { Settings } from "lucide-react"
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import {
+  useSuspenseQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query"
 import {
   projectDetailQueryOptions,
   projectAccessQueryOptions,
 } from "@/lib/query-options"
-import { PageSidebar } from "@/components/PageSidebar"
 
 export const Route = createFileRoute("/_app/project/$id/")({
   loader: ({ params, context }) => {
@@ -71,9 +74,6 @@ function RouteComponent() {
 
   return (
     <>
-      <PageSidebar>
-        <div className="font-medium">project</div>
-      </PageSidebar>
       <div className="p-6 space-y-6 max-w-[600px] mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">

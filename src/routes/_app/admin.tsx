@@ -8,7 +8,8 @@ import { UserIcon } from "lucide-react"
 
 export const Route = createFileRoute("/_app/admin")({
   beforeLoad: async ({ context }) => {
-    const session = await context.queryClient.ensureQueryData(sessionQueryOptions)
+    const session =
+      await context.queryClient.ensureQueryData(sessionQueryOptions)
     const isSuperuser = session?.user?.email?.endsWith("@trubuild.io") ?? false
     if (!isSuperuser) {
       throw redirect({ to: "/" })
@@ -23,7 +24,9 @@ function AdminPage() {
     queryKey: ["admin", "users"],
     queryFn: async () => {
       const result = await authClient.admin.listUsers({
-        limit: 100,
+        query: {
+          limit: Infinity,
+        },
       })
       return result.data
     },
@@ -92,4 +95,3 @@ function AdminPage() {
     </div>
   )
 }
-

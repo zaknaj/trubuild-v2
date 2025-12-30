@@ -33,6 +33,7 @@ import {
   sessionQueryOptions,
 } from "@/lib/query-options"
 import type { OrgMember } from "@/lib/types"
+import { Sidemenu } from "@/components/Sidemenu"
 
 const orgRoleLabels: Record<string, string> = {
   owner: "Admin",
@@ -59,9 +60,7 @@ function RouteComponent() {
   const queryClient = useQueryClient()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [email, setEmail] = useState("")
-  const [role, setRole] = useState<"owner" | "admin" | "member">(
-    "member"
-  )
+  const [role, setRole] = useState<"owner" | "admin" | "member">("member")
 
   const activeOrg = orgs?.find(
     (o) => o.id === session?.session?.activeOrganizationId
@@ -126,88 +125,29 @@ function RouteComponent() {
   }
 
   return (
-    <div className="p-6 space-y-8 max-w-[600px] mx-auto">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-
-      {/* Profile Settings */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-medium">Profile</h2>
-        <div className="border rounded-lg p-4 space-y-4">
-          <div className="space-y-2">
-            <Label>Profile Image</Label>
-            <div className="flex items-center gap-4">
-              {session?.user?.image ? (
-                <img
-                  src={session.user.image}
-                  alt=""
-                  className="size-16 rounded-full object-cover"
-                />
-              ) : (
-                <div className="size-16 rounded-full bg-muted flex items-center justify-center text-lg font-medium uppercase text-muted-foreground">
-                  {session?.user?.name?.charAt(0) ||
-                    session?.user?.email?.charAt(0)}
-                </div>
-              )}
-              <Button variant="outline" size="sm" className="gap-1.5" disabled>
-                <Upload className="size-4" />
-                Upload
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="profileName">Name</Label>
-            <div className="flex gap-2">
-              <Input
-                id="profileName"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                disabled={updateProfile.isPending}
-              />
-              <Button
-                onClick={() => updateProfile.mutate(profileName)}
-                disabled={
-                  updateProfile.isPending ||
-                  profileName.trim() === session?.user?.name
-                }
-                size="sm"
-              >
-                {updateProfile.isPending ? "Saving..." : "Save"}
-              </Button>
-            </div>
-            {updateProfile.error && (
-              <p className="text-sm text-red-500">
-                {updateProfile.error instanceof Error
-                  ? updateProfile.error.message
-                  : "Failed to update profile"}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label>Email</Label>
-            <p className="text-sm text-muted-foreground">
-              {session?.user?.email}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Organization Settings - only for admins/owners */}
-      {canEditOrg && (
+    <>
+      <Sidemenu>
+        <div className="font-medium">Sidemenu</div>
+      </Sidemenu>
+      <div className="pt-6 space-y-8 max-w-140 mx-auto">
+        <h1 className="text-2xl font-semibold">Settings</h1>
+        {/* Profile Settings */}
         <section className="space-y-4">
-          <h2 className="text-lg font-medium">Organization</h2>
+          <h2 className="text-lg font-medium">Profile</h2>
           <div className="border rounded-lg p-4 space-y-4">
             <div className="space-y-2">
-              <Label>Logo</Label>
+              <Label>Profile Image</Label>
               <div className="flex items-center gap-4">
-                {activeOrg?.logo ? (
+                {session?.user?.image ? (
                   <img
-                    src={activeOrg.logo}
+                    src={session.user.image}
                     alt=""
-                    className="size-16 rounded-lg object-cover"
+                    className="size-16 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="size-16 rounded-lg bg-muted flex items-center justify-center text-lg font-medium uppercase text-muted-foreground">
-                    {activeOrg?.name?.charAt(0)}
+                  <div className="size-16 rounded-full bg-muted flex items-center justify-center text-lg font-medium uppercase text-muted-foreground">
+                    {session?.user?.name?.charAt(0) ||
+                      session?.user?.email?.charAt(0)}
                   </div>
                 )}
                 <Button
@@ -222,178 +162,243 @@ function RouteComponent() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="orgName">Name</Label>
+              <Label htmlFor="profileName">Name</Label>
               <div className="flex gap-2">
                 <Input
-                  id="orgName"
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  disabled={updateOrg.isPending}
+                  id="profileName"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  disabled={updateProfile.isPending}
                 />
                 <Button
-                  onClick={() => updateOrg.mutate(orgName)}
+                  onClick={() => updateProfile.mutate(profileName)}
                   disabled={
-                    updateOrg.isPending || orgName.trim() === activeOrg?.name
+                    updateProfile.isPending ||
+                    profileName.trim() === session?.user?.name
                   }
                   size="sm"
                 >
-                  {updateOrg.isPending ? "Saving..." : "Save"}
+                  {updateProfile.isPending ? "Saving..." : "Save"}
                 </Button>
               </div>
-              {updateOrg.error && (
+              {updateProfile.error && (
                 <p className="text-sm text-red-500">
-                  {updateOrg.error instanceof Error
-                    ? updateOrg.error.message
-                    : "Failed to update organization"}
+                  {updateProfile.error instanceof Error
+                    ? updateProfile.error.message
+                    : "Failed to update profile"}
                 </p>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <p className="text-sm text-muted-foreground">
+                {session?.user?.email}
+              </p>
             </div>
           </div>
         </section>
-      )}
-
-      {/* Members */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium">Organization Members</h2>
-          {canInvite && (
-            <Button
-              size="sm"
-              onClick={() => setIsInviteOpen(true)}
-              className="gap-1.5"
-            >
-              <UserPlus className="size-4" />
-              Invite
-            </Button>
-          )}
-        </div>
-
-        <div className="border rounded-lg divide-y">
-          {members.length === 0 && pendingInvites.length === 0 ? (
-            <div className="p-4 text-sm text-muted-foreground text-center">
-              No members found
-            </div>
-          ) : (
-            <>
-              {members.map((m: OrgMember) => (
-                <div key={m.id} className="flex items-center gap-3 p-3">
-                  {m.userImage ? (
+        {/* Organization Settings - only for admins/owners */}
+        {canEditOrg && (
+          <section className="space-y-4">
+            <h2 className="text-lg font-medium">Organization</h2>
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="space-y-2">
+                <Label>Logo</Label>
+                <div className="flex items-center gap-4">
+                  {activeOrg?.logo ? (
                     <img
-                      src={m.userImage}
+                      src={activeOrg.logo}
                       alt=""
-                      className="size-9 rounded-full object-cover"
+                      className="size-16 rounded-lg object-cover"
                     />
                   ) : (
-                    <div className="size-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium uppercase text-muted-foreground">
-                      {m.userName?.charAt(0) || m.email.charAt(0)}
+                    <div className="size-16 rounded-lg bg-muted flex items-center justify-center text-lg font-medium uppercase text-muted-foreground">
+                      {activeOrg?.name?.charAt(0)}
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {m.userName || m.email}
-                    </p>
-                    {m.userName && (
-                      <p className="text-sm text-muted-foreground truncate">
-                        {m.email}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                    {orgRoleLabels[m.role] ?? m.role}
-                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled
+                  >
+                    <Upload className="size-4" />
+                    Upload
+                  </Button>
                 </div>
-              ))}
-              {pendingInvites.map((inv) => (
-                <div key={inv.id} className="flex items-center gap-3 p-3">
-                  <div className="size-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium uppercase text-muted-foreground">
-                    {inv.email.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{inv.email}</p>
-                    <p className="text-sm text-amber-600">Pending signup</p>
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                    {orgRoleLabels[inv.role ?? "member"]}
-                  </span>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="orgName">Name</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="orgName"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    disabled={updateOrg.isPending}
+                  />
+                  <Button
+                    onClick={() => updateOrg.mutate(orgName)}
+                    disabled={
+                      updateOrg.isPending || orgName.trim() === activeOrg?.name
+                    }
+                    size="sm"
+                  >
+                    {updateOrg.isPending ? "Saving..." : "Save"}
+                  </Button>
                 </div>
-              ))}
-            </>
-          )}
-        </div>
-      </section>
-
-      <Drawer open={isInviteOpen} direction="right" onClose={closeDrawer}>
-        <DrawerContent className="min-w-[400px]">
-          <form onSubmit={handleInvite} className="flex flex-col h-full">
-            <DrawerHeader>
-              <DrawerTitle>Invite Member</DrawerTitle>
-              <DrawerDescription>
-                Invite someone to join your organization.
-              </DrawerDescription>
-            </DrawerHeader>
-
-            <div className="px-6 space-y-4 flex-1">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="colleague@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={inviteMember.isPending}
-                  autoFocus
-                />
+                {updateOrg.error && (
+                  <p className="text-sm text-red-500">
+                    {updateOrg.error instanceof Error
+                      ? updateOrg.error.message
+                      : "Failed to update organization"}
+                  </p>
+                )}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select
-                  value={role}
-                  onValueChange={(v) => setRole(v as typeof role)}
-                  disabled={inviteMember.isPending}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="owner">Admin</SelectItem>
-                    <SelectItem value="admin">Project Owner</SelectItem>
-                    <SelectItem value="member">Member</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Admins have full access. Project Owners can create projects.
-                  Members have read access only.
-                </p>
-              </div>
-
-              {inviteMember.error && (
-                <p className="text-sm text-red-500">
-                  {inviteMember.error instanceof Error
-                    ? inviteMember.error.message
-                    : "Failed to send invitation"}
-                </p>
-              )}
             </div>
-
-            <DrawerFooter className="flex-row gap-2">
-              <DrawerClose asChild>
-                <Button type="button" variant="outline" className="flex-1">
-                  Cancel
-                </Button>
-              </DrawerClose>
+          </section>
+        )}
+        {/* Members */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium">Organization Members</h2>
+            {canInvite && (
               <Button
-                type="submit"
-                disabled={inviteMember.isPending || !email.trim()}
-                className="flex-1"
+                size="sm"
+                onClick={() => setIsInviteOpen(true)}
+                className="gap-1.5"
               >
-                {inviteMember.isPending ? "Sending..." : "Send Invitation"}
+                <UserPlus className="size-4" />
+                Invite
               </Button>
-            </DrawerFooter>
-          </form>
-        </DrawerContent>
-      </Drawer>
-    </div>
+            )}
+          </div>
+
+          <div className="border rounded-lg divide-y">
+            {members.length === 0 && pendingInvites.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground text-center">
+                No members found
+              </div>
+            ) : (
+              <>
+                {members.map((m: OrgMember) => (
+                  <div key={m.id} className="flex items-center gap-3 p-3">
+                    {m.userImage ? (
+                      <img
+                        src={m.userImage}
+                        alt=""
+                        className="size-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="size-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium uppercase text-muted-foreground">
+                        {m.userName?.charAt(0) || m.email.charAt(0)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {m.userName || m.email}
+                      </p>
+                      {m.userName && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          {m.email}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                      {orgRoleLabels[m.role] ?? m.role}
+                    </span>
+                  </div>
+                ))}
+                {pendingInvites.map((inv) => (
+                  <div key={inv.id} className="flex items-center gap-3 p-3">
+                    <div className="size-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium uppercase text-muted-foreground">
+                      {inv.email.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{inv.email}</p>
+                      <p className="text-sm text-amber-600">Pending signup</p>
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                      {orgRoleLabels[inv.role ?? "member"]}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </section>
+        <Drawer open={isInviteOpen} direction="right" onClose={closeDrawer}>
+          <DrawerContent className="min-w-[400px]">
+            <form onSubmit={handleInvite} className="flex flex-col h-full">
+              <DrawerHeader>
+                <DrawerTitle>Invite Member</DrawerTitle>
+                <DrawerDescription>
+                  Invite someone to join your organization.
+                </DrawerDescription>
+              </DrawerHeader>
+
+              <div className="px-6 space-y-4 flex-1">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="colleague@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={inviteMember.isPending}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Select
+                    value={role}
+                    onValueChange={(v) => setRole(v as typeof role)}
+                    disabled={inviteMember.isPending}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="owner">Admin</SelectItem>
+                      <SelectItem value="admin">Project Owner</SelectItem>
+                      <SelectItem value="member">Member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Admins have full access. Project Owners can create projects.
+                    Members have read access only.
+                  </p>
+                </div>
+
+                {inviteMember.error && (
+                  <p className="text-sm text-red-500">
+                    {inviteMember.error instanceof Error
+                      ? inviteMember.error.message
+                      : "Failed to send invitation"}
+                  </p>
+                )}
+              </div>
+
+              <DrawerFooter className="flex-row gap-2">
+                <DrawerClose asChild>
+                  <Button type="button" variant="outline" className="flex-1">
+                    Cancel
+                  </Button>
+                </DrawerClose>
+                <Button
+                  type="submit"
+                  disabled={inviteMember.isPending || !email.trim()}
+                  className="flex-1"
+                >
+                  {inviteMember.isPending ? "Sending..." : "Send Invitation"}
+                </Button>
+              </DrawerFooter>
+            </form>
+          </DrawerContent>
+        </Drawer>
+      </div>
+    </>
   )
 }

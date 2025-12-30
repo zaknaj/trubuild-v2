@@ -97,10 +97,10 @@ function LoginPage() {
           Welcome to TruBuild
         </h1>
       </div>
-      <div className="bg-white p-12 py-10 modal-with-border flex flex-col gap-6 w-90">
+      <div className="bg-white p-8 py-6 rounded-xl flex flex-col gap-6 w-80 modal-shadow">
         {loginState === "login" ? (
           <>
-            <h2 className="font-medium text-center mb-4">
+            <h2 className="font-semibold text-center">
               Please log in to continue
             </h2>
             <form
@@ -111,7 +111,7 @@ function LoginPage() {
                 type="email"
                 placeholder="name@company.com"
                 autoFocus
-                className="bg-white w-full py-5 text-center"
+                className="bg-white w-full text-center"
                 value={email}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setEmail(e.target.value)
@@ -122,7 +122,7 @@ function LoginPage() {
                 type="submit"
                 variant="primary"
                 disabled={isLoading || !email.trim()}
-                className="w-full py-5 mt-3"
+                className="w-full mt-3"
               >
                 {isLoading ? <Spinner /> : "Log in"}
               </Button>

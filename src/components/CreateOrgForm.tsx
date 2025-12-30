@@ -66,14 +66,14 @@ export function CreateOrgForm({ onSuccess }: CreateOrgFormProps) {
 
   return (
     <>
-      <h2 className="text-base font-semibold text-center mb-3">
+      <h2 className="text-base font-semibold text-center">
         Create an organization
       </h2>
       <form onSubmit={handleSubmit} className="flex flex-col items-center">
         <Input
           placeholder="Organization name"
           autoFocus
-          className="bg-white w-full py-5 text-center"
+          className="bg-white w-full text-center"
           value={orgName}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             setOrgName(e.target.value)
@@ -84,7 +84,7 @@ export function CreateOrgForm({ onSuccess }: CreateOrgFormProps) {
           type="submit"
           variant="primary"
           disabled={isCreating || !orgName.trim()}
-          className="w-full py-5 mt-3"
+          className="w-full mt-3"
         >
           {isCreating ? <Spinner /> : "Create organization"}
         </Button>

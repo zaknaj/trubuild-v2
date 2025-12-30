@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { PageSidebar } from "@/components/PageSidebar"
 import { createProjectFn } from "@/fn"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
@@ -65,9 +64,6 @@ function RouteComponent() {
 
   return (
     <>
-      <PageSidebar>
-        <div className="font-medium">all-projects</div>
-      </PageSidebar>
       <div className="p-6 space-y-6 max-w-[600px] mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">

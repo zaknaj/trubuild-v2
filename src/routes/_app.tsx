@@ -47,12 +47,10 @@ function RouteComponent() {
           className="absolute bg-white/20 -top-(--d) left-[calc(var(--p)-var(--d))] h-[calc(100%-var(--p)+var(--d)*2)] 
           w-[calc(100%-(var(--p)-var(--d))*2)] rounded-[calc(var(--r)+var(--d))] border-[0.5px] border-white/30 [box-shadow:0_0_20px_rgba(0,0,0,0.25)]"
         /> */}
-      <div className="p-6 overflow-hidden -mt-6 h-full">
-        <div className="relative bg-white size-full overflow-auto rounded-lg shadow-[0_0_0_6px_rgba(255,255,255,0.25)] pb-60">
-          <Suspense fallback={<div className="p-6">Loading...</div>}>
-            <Outlet />
-          </Suspense>
-        </div>
+      <div className="bg-white ring h-full overflow-auto max-h-full">
+        <Suspense fallback={<div className="p-6">Loading...</div>}>
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   )
