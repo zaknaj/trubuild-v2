@@ -2,7 +2,7 @@ import { db } from "@/db"
 import { member, projectMember, packageMember, proj, pkg } from "@/db/schema"
 import { and, eq } from "drizzle-orm"
 
-export type OrgRole = "org-admin" | "owner" | "member"
+export type OrgRole = "owner" | "admin" | "member"
 export type ProjectRole = "project_lead" | "commercial_lead" | "technical_lead"
 export type PackageRole = "package_lead" | "commercial_team" | "technical_team"
 export type AccessLevel = "full" | "commercial" | "technical" | "none"
@@ -57,7 +57,7 @@ export async function getProjectAccess(
   // Determine access level
   let access: AccessLevel = "none"
 
-  if (orgRole === "org-admin" || isCreator || projectRole === "project_lead") {
+  if (orgRole === "owner" || isCreator || projectRole === "project_lead") {
     access = "full"
   } else if (projectRole === "commercial_lead") {
     access = "commercial"
@@ -139,7 +139,7 @@ export async function getPackageAccess(
   let access: AccessLevel = "none"
 
   if (
-    orgRole === "org-admin" ||
+    orgRole === "owner" ||
     isPackageCreator ||
     packageRole === "package_lead"
   ) {

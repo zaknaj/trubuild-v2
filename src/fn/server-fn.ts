@@ -45,19 +45,46 @@ export async function getAuthContext<T extends boolean = true>(
 }
 
 /**
- * Require org admin/owner role - throws if user lacks permission
+ * Require org owner role - for org-level admin operations (edit org, invite members)
  */
-export async function requireOrgAdmin(ctx: AuthContext) {
+export async function requireOrgOwner(ctx: AuthContext) {
   const [orgMember] = await db
     .select({ role: member.role })
     .from(member)
     .where(
-      and(eq(member.userId, ctx.userId), eq(member.organizationId, ctx.activeOrgId))
+      and(
+        eq(member.userId, ctx.userId),
+        eq(member.organizationId, ctx.activeOrgId)
+      )
     )
     .limit(1)
 
-  if (!orgMember || (orgMember.role !== "org-admin" && orgMember.role !== "owner")) {
+  if (!orgMember || orgMember.role !== "owner") {
     throw new Error(ERRORS.NO_PERMISSION_ADMIN)
+  }
+  return orgMember
+}
+
+/**
+ * Require owner or admin role - for creating projects
+ */
+export async function requireCanCreateProject(ctx: AuthContext) {
+  const [orgMember] = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(
+      and(
+        eq(member.userId, ctx.userId),
+        eq(member.organizationId, ctx.activeOrgId)
+      )
+    )
+    .limit(1)
+
+  if (
+    !orgMember ||
+    (orgMember.role !== "owner" && orgMember.role !== "admin")
+  ) {
+    throw new Error(ERRORS.NO_PERMISSION_CREATE_PROJECT)
   }
   return orgMember
 }

@@ -32,7 +32,13 @@ import {
   orgsQueryOptions,
   sessionQueryOptions,
 } from "@/lib/query-options"
-import type { Member } from "@/lib/types"
+import type { OrgMember } from "@/lib/types"
+
+const orgRoleLabels: Record<string, string> = {
+  owner: "Admin",
+  admin: "Project Owner",
+  member: "Member",
+}
 
 export const Route = createFileRoute("/_app/settings")({
   component: RouteComponent,
@@ -53,7 +59,9 @@ function RouteComponent() {
   const queryClient = useQueryClient()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [email, setEmail] = useState("")
-  const [role, setRole] = useState<"org-admin" | "owner" | "member">("member")
+  const [role, setRole] = useState<"owner" | "admin" | "member">(
+    "member"
+  )
 
   const activeOrg = orgs?.find(
     (o) => o.id === session?.session?.activeOrganizationId
@@ -70,10 +78,10 @@ function RouteComponent() {
   }, [session?.user?.name])
 
   const currentUserRole = members.find(
-    (m: Member) => m.userId === session?.user?.id
+    (m: OrgMember) => m.userId === session?.user?.id
   )?.role
-  const canInvite = currentUserRole === "org-admin" || currentUserRole === "owner"
-  const canEditOrg = currentUserRole === "org-admin" || currentUserRole === "owner"
+  const canInvite = currentUserRole === "owner"
+  const canEditOrg = currentUserRole === "owner"
 
   const updateOrg = useMutation({
     mutationFn: (name: string) => updateOrganizationFn({ data: { name } }),
@@ -267,7 +275,7 @@ function RouteComponent() {
             </div>
           ) : (
             <>
-              {members.map((m: Member) => (
+              {members.map((m: OrgMember) => (
                 <div key={m.id} className="flex items-center gap-3 p-3">
                   {m.userImage ? (
                     <img
@@ -290,8 +298,8 @@ function RouteComponent() {
                       </p>
                     )}
                   </div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
-                    {m.role}
+                  <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                    {orgRoleLabels[m.role] ?? m.role}
                   </span>
                 </div>
               ))}
@@ -304,8 +312,8 @@ function RouteComponent() {
                     <p className="font-medium truncate">{inv.email}</p>
                     <p className="text-sm text-amber-600">Pending signup</p>
                   </div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
-                    {inv.role ?? "member"}
+                  <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                    {orgRoleLabels[inv.role ?? "member"]}
                   </span>
                 </div>
               ))}
@@ -349,14 +357,14 @@ function RouteComponent() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="owner">Admin</SelectItem>
+                    <SelectItem value="admin">Project Owner</SelectItem>
                     <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="org-admin">Admin</SelectItem>
-                    <SelectItem value="owner">Owner</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Members can view, org-admins can manage projects, owners have
-                  full control.
+                  Admins have full access. Project Owners can create projects.
+                  Members have read access only.
                 </p>
               </div>
 

@@ -15,7 +15,11 @@ import { getRequestHeaders } from "@tanstack/react-start/server"
 import { and, desc, eq, or, isNull } from "drizzle-orm"
 import { z } from "zod"
 import { getProjectAccess, getPackageAccess } from "@/lib/permissions"
-import { getAuthContext, requireOrgAdmin } from "./server-fn"
+import {
+  getAuthContext,
+  requireOrgOwner,
+  requireCanCreateProject,
+} from "./server-fn"
 import { ERRORS } from "@/lib/errors"
 
 // ============================================================================
@@ -141,7 +145,7 @@ export const setOrgCreatorAsAdminFn = createServerFn({ method: "POST" })
     const ctx = await getAuthContext(false)
     await db
       .update(member)
-      .set({ role: "org-admin" })
+      .set({ role: "owner" })
       .where(
         and(
           eq(member.userId, ctx.userId),
@@ -155,7 +159,7 @@ export const updateOrganizationFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ name: z.string().trim().min(1) }))
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
-    await requireOrgAdmin(ctx)
+    await requireOrgOwner(ctx)
     const headers = getRequestHeaders()
 
     await auth.api.updateOrganization({
@@ -244,12 +248,12 @@ export const inviteMemberFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       email: z.email(),
-      role: z.enum(["org-admin", "owner", "member"]),
+      role: z.enum(["owner", "admin", "member"]),
     })
   )
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
-    await requireOrgAdmin(ctx)
+    await requireOrgOwner(ctx)
     const headers = getRequestHeaders()
 
     await auth.api.createInvitation({
@@ -281,7 +285,7 @@ export const listProjectsFn = createServerFn().handler(async () => {
     )
     .limit(1)
 
-  if (orgMember?.role === "org-admin") {
+  if (orgMember?.role === "owner") {
     const projects = await db
       .select({
         id: proj.id,
@@ -326,7 +330,7 @@ export const createProjectFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ name: z.string().trim().min(1) }))
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
-    await requireOrgAdmin(ctx)
+    await requireCanCreateProject(ctx)
 
     const [project] = await db
       .insert(proj)

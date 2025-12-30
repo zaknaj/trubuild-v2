@@ -10,7 +10,7 @@ import {
 } from "@/lib/query-options"
 
 export const Route = createFileRoute("/_app")({
-  loader: async ({ context }) => {
+  beforeLoad: async ({ context }) => {
     const { queryClient } = context
     const session = await queryClient.ensureQueryData(sessionQueryOptions)
     if (!session) {

@@ -13,7 +13,11 @@ import { PageSidebar } from "@/components/PageSidebar"
 import { createProjectFn } from "@/fn"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import {
+  useSuspenseQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query"
 import {
   projectsQueryOptions,
   currentUserOrgRoleQueryOptions,
@@ -36,7 +40,7 @@ function RouteComponent() {
   const [projectName, setProjectName] = useState("")
 
   const canCreateProject =
-    userRole.role === "org-admin" || userRole.role === "owner"
+    userRole.role === "owner" || userRole.role === "admin"
 
   const createProject = useMutation({
     mutationFn: (name: string) => createProjectFn({ data: { name } }),
