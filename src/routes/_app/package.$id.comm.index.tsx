@@ -3,7 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { packageDetailQueryOptions } from "@/lib/query-options"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 
-export const Route = createFileRoute("/_app/package/$id/tech")({
+export const Route = createFileRoute("/_app/package/$id/comm/")({
   component: RouteComponent,
 })
 
@@ -22,7 +22,7 @@ function RouteComponent() {
           { label: pkg.name, to: "/package/$id", params: { id } },
         ]}
       />
-      <div>Hello "/_app/package/$id/tech"!</div>
+      <div>Hello "/_app/package/$id/comm"!</div>
     </div>
   )
 }

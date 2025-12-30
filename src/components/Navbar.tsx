@@ -15,20 +15,20 @@ export const Navbar = () => {
       <div className="w-fit flex items-center gap-3 justify-center">
         <Link
           to="/"
-          className="rounded py-1.5 text-shadow-sm font-medium flex items-center gap-1 px-2.5 border-[0.5px] border-transparent hover:bg-black/10 text-white/60"
+          className="rounded py-1.5  font-medium flex items-center gap-1 px-2.5 border-[0.5px] border-transparent hover:bg-black/10 text-white/60"
           activeProps={{
             className:
-              "text-white/100 bg-white/20 ring ring-white/40 opacity-100 hover:bg-white/20",
+              "text-white/100 bg-white/15 opacity-100 hover:bg-white/15",
           }}
         >
           <LayoutDashboard size="16" /> Overview
         </Link>
         <Link
           to="/all-projects"
-          className="rounded py-1.5 text-shadow-sm font-medium flex items-center gap-1 px-2.5 border-[0.5px] border-transparent hover:bg-black/10 text-white/60"
+          className="rounded py-1.5  font-medium flex items-center gap-1 px-2.5 border-[0.5px] border-transparent hover:bg-black/10 text-white/60"
           activeProps={{
             className:
-              "text-white/100 bg-white/20 ring ring-white/40 opacity-100 hover:bg-white/20",
+              "text-white/100 bg-white/15 opacity-100 hover:bg-white/15",
           }}
         >
           <Columns3 size="16" />
@@ -36,10 +36,10 @@ export const Navbar = () => {
         </Link>
         <Link
           to="/settings"
-          className="rounded py-1.5 text-shadow-sm font-medium flex items-center gap-1 px-2.5 border-[0.5px] border-transparent hover:bg-black/10 text-white/60"
+          className="rounded py-1.5  font-medium flex items-center gap-1 px-2.5 border-[0.5px] border-transparent hover:bg-black/10 text-white/60"
           activeProps={{
             className:
-              "text-white/100 bg-white/20 ring ring-white/40 opacity-100 hover:bg-white/20",
+              "text-white/100 bg-white/15 opacity-100 hover:bg-white/15",
           }}
         >
           <Settings size="16" /> Settings

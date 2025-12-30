@@ -47,7 +47,7 @@ function RouteComponent() {
           className="absolute bg-white/20 -top-(--d) left-[calc(var(--p)-var(--d))] h-[calc(100%-var(--p)+var(--d)*2)] 
           w-[calc(100%-(var(--p)-var(--d))*2)] rounded-[calc(var(--r)+var(--d))] border-[0.5px] border-white/30 [box-shadow:0_0_20px_rgba(0,0,0,0.25)]"
         /> */}
-      <div className="bg-white ring h-full overflow-auto max-h-full">
+      <div className="bg-white h-full overflow-auto max-h-full">
         <Suspense fallback={<div className="p-6">Loading...</div>}>
           <Outlet />
         </Suspense>

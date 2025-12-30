@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useState, useRef, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,7 +10,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover"
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import { UserPlus, Clock, X, Loader2 } from "lucide-react"
 import {
   useSuspenseQuery,
@@ -25,6 +33,7 @@ import {
 } from "@/lib/query-options"
 import { addProjectMemberFn, removeProjectMemberFn } from "@/fn"
 import type { Member } from "@/lib/types"
+import { Breadcrumbs } from "@/components/Breadcrumbs"
 
 export const Route = createFileRoute("/_app/project/$id/settings")({
   loader: ({ params, context }) => {
@@ -52,11 +61,10 @@ function RouteComponent() {
   const { data: orgMembers } = useSuspenseQuery(orgMembersQueryOptions)
   const queryClient = useQueryClient()
 
+  const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<ProjectRole>("commercial_lead")
   const [removingEmail, setRemovingEmail] = useState<string | null>(null)
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const { project } = projectData
   const canInvite = accessInfo.access === "full"
@@ -67,13 +75,6 @@ function RouteComponent() {
     (m) => !projectMemberEmails.has(m.email)
   )
 
-  // Filter suggestions based on email input
-  const suggestions = availableOrgMembers.filter(
-    (m) =>
-      m.email.toLowerCase().includes(email.toLowerCase()) ||
-      m.userName?.toLowerCase().includes(email.toLowerCase())
-  )
-
   const addMember = useMutation({
     mutationFn: (data: { email: string; role: ProjectRole }) =>
       addProjectMemberFn({ data: { projectId: project.id, ...data } }),
@@ -81,8 +82,7 @@ function RouteComponent() {
       queryClient.invalidateQueries({
         queryKey: projectMembersQueryOptions(id).queryKey,
       })
-      setEmail("")
-      setShowSuggestions(false)
+      closeDrawer()
     },
   })
 
@@ -102,6 +102,13 @@ function RouteComponent() {
     },
   })
 
+  const closeDrawer = () => {
+    setIsInviteOpen(false)
+    setEmail("")
+    setRole("commercial_lead")
+    addMember.reset()
+  }
+
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmedEmail = email.trim()
@@ -109,27 +116,10 @@ function RouteComponent() {
     addMember.mutate({ email: trimmedEmail, role })
   }
 
-  const handleSelectSuggestion = (memberEmail: string) => {
-    setEmail(memberEmail)
-    setShowSuggestions(false)
-    inputRef.current?.focus()
-  }
-
   const handleRemove = (memberEmail: string) => {
     setRemovingEmail(memberEmail)
     removeMember.mutate(memberEmail)
   }
-
-  // Close suggestions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
 
   const activeMembers = members.filter((m: Member) => m.userId !== null)
   const pendingMembers = members.filter((m: Member) => m.userId === null)
@@ -137,6 +127,12 @@ function RouteComponent() {
   return (
     <>
       <div className="p-6 space-y-8 max-w-[600px] mx-auto">
+        <Breadcrumbs
+          crumbs={[
+            { label: "All projects", to: "/all-projects" },
+            { label: project.name, to: "/project/$id", params: { id } },
+          ]}
+        />
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Project Settings
@@ -146,126 +142,25 @@ function RouteComponent() {
           </h1>
         </div>
 
-        {/* Add Members - only for users with full access */}
-        {canInvite && (
-          <section className="space-y-4">
+        {/* Project Members */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-medium">Add Members</h2>
+              <h2 className="text-lg font-medium">Project Members</h2>
               <p className="text-sm text-muted-foreground">
-                Invite people to collaborate on this project
+                People with access to this project
               </p>
             </div>
-
-            <form
-              onSubmit={handleAddMember}
-              className="border rounded-lg p-4 space-y-4"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
-                <div className="flex gap-2">
-                  <Popover open={showSuggestions && suggestions.length > 0}>
-                    <PopoverAnchor asChild>
-                      <Input
-                        ref={inputRef}
-                        id="email"
-                        type="email"
-                        placeholder="colleague@example.com"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value)
-                          setShowSuggestions(true)
-                        }}
-                        onFocus={() => setShowSuggestions(true)}
-                        disabled={addMember.isPending}
-                        className="flex-1"
-                        autoComplete="off"
-                      />
-                    </PopoverAnchor>
-                    <PopoverContent
-                      className="p-1 w-[--radix-popover-trigger-width]"
-                      align="start"
-                      onOpenAutoFocus={(e) => e.preventDefault()}
-                    >
-                      <div className="max-h-48 overflow-y-auto">
-                        {suggestions.map((m) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted text-left"
-                            onClick={() => handleSelectSuggestion(m.email)}
-                          >
-                            {m.userImage ? (
-                              <img
-                                src={m.userImage}
-                                alt=""
-                                className="size-6 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="size-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium uppercase text-muted-foreground">
-                                {m.userName?.charAt(0) || m.email.charAt(0)}
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate text-xs">
-                                {m.userName || m.email}
-                              </p>
-                              {m.userName && (
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {m.email}
-                                </p>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <Select
-                    value={role}
-                    onValueChange={(v) => setRole(v as ProjectRole)}
-                    disabled={addMember.isPending}
-                  >
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="project_lead">Project Lead</SelectItem>
-                      <SelectItem value="commercial_lead">
-                        Commercial Lead
-                      </SelectItem>
-                      <SelectItem value="technical_lead">
-                        Technical Lead
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="submit"
-                    disabled={addMember.isPending || !email.trim()}
-                    className="gap-1.5"
-                  >
-                    <UserPlus className="size-4" />
-                    Invite
-                  </Button>
-                </div>
-                {addMember.error && (
-                  <p className="text-sm text-red-500">
-                    {addMember.error instanceof Error
-                      ? addMember.error.message
-                      : "Failed to add member"}
-                  </p>
-                )}
-              </div>
-            </form>
-          </section>
-        )}
-
-        {/* Current Members */}
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-medium">Project Members</h2>
-            <p className="text-sm text-muted-foreground">
-              People with access to this project
-            </p>
+            {canInvite && (
+              <Button
+                size="sm"
+                onClick={() => setIsInviteOpen(true)}
+                className="gap-1.5"
+              >
+                <UserPlus className="size-4" />
+                Invite
+              </Button>
+            )}
           </div>
 
           <div className="border rounded-lg divide-y">
@@ -362,6 +257,119 @@ function RouteComponent() {
           )}
         </section>
       </div>
+      <Drawer open={isInviteOpen} direction="right" onClose={closeDrawer}>
+        <DrawerContent className="min-w-[400px]">
+          <form onSubmit={handleAddMember} className="flex flex-col h-full">
+            <DrawerHeader>
+              <DrawerTitle>Invite Member</DrawerTitle>
+              <DrawerDescription>
+                Invite someone to collaborate on this project.
+              </DrawerDescription>
+            </DrawerHeader>
+
+            <div className="px-6 space-y-4 flex-1 overflow-y-auto">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="colleague@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={addMember.isPending}
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select
+                  value={role}
+                  onValueChange={(v) => setRole(v as ProjectRole)}
+                  disabled={addMember.isPending}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="project_lead">Project Lead</SelectItem>
+                    <SelectItem value="commercial_lead">
+                      Commercial Lead
+                    </SelectItem>
+                    <SelectItem value="technical_lead">
+                      Technical Lead
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {addMember.error && (
+                <p className="text-sm text-red-500">
+                  {addMember.error instanceof Error
+                    ? addMember.error.message
+                    : "Failed to add member"}
+                </p>
+              )}
+
+              {availableOrgMembers.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <Label>Suggestions</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Organization members not yet in this project
+                  </p>
+                  <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+                    {availableOrgMembers.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted text-left"
+                        onClick={() => setEmail(m.email)}
+                      >
+                        {m.userImage ? (
+                          <img
+                            src={m.userImage}
+                            alt=""
+                            className="size-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="size-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium uppercase text-muted-foreground">
+                            {m.userName?.charAt(0) || m.email.charAt(0)}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate text-xs">
+                            {m.userName || m.email}
+                          </p>
+                          {m.userName && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {m.email}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DrawerFooter className="flex-row gap-2">
+              <DrawerClose asChild>
+                <Button type="button" variant="outline" className="flex-1">
+                  Cancel
+                </Button>
+              </DrawerClose>
+              <Button
+                type="submit"
+                disabled={addMember.isPending || !email.trim()}
+                className="flex-1"
+              >
+                {addMember.isPending ? "Sending..." : "Send Invitation"}
+              </Button>
+            </DrawerFooter>
+          </form>
+        </DrawerContent>
+      </Drawer>
     </>
   )
 }

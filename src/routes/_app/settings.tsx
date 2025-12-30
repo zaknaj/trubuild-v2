@@ -126,9 +126,6 @@ function RouteComponent() {
 
   return (
     <>
-      <Sidemenu>
-        <div className="font-medium">Sidemenu</div>
-      </Sidemenu>
       <div className="pt-6 space-y-8 max-w-140 mx-auto">
         <h1 className="text-2xl font-semibold">Settings</h1>
         {/* Profile Settings */}

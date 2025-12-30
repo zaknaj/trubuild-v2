@@ -31,7 +31,7 @@ export function CreateOrgModal({ open, onOpenChange }: CreateOrgModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-10 w-80">
+      <DialogContent className="w-80">
         <CreateOrgForm onSuccess={handleSuccess} />
       </DialogContent>
     </Dialog>

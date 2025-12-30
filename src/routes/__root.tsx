@@ -9,6 +9,7 @@ import type { QueryClient } from "@tanstack/react-query"
 import { Toaster } from "@/components/ui/sonner"
 
 import appCss from "../styles.css?url"
+import { Spinner } from "@/components/ui/spinner"
 
 interface RouterContext {
   queryClient: QueryClient
@@ -38,7 +39,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
   shellComponent: RootDocument,
   notFoundComponent: () => <div>Not Found</div>,
-  pendingComponent: () => <div>...</div>,
+  pendingComponent: () => (
+    <div>
+      <Spinner />
+    </div>
+  ),
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
