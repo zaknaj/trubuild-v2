@@ -2,8 +2,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { authClient } from "@/auth/auth-client"
-import { setOrgCreatorAsAdminFn, setActiveOrgFn } from "@/fn"
-import { orgsQueryOptions, activeOrgIdQueryOptions } from "@/lib/query-options"
+import { setOrgCreatorAsOwnerFn, setActiveOrgFn } from "@/fn"
+import { orgsQueryOptions, sessionQueryOptions } from "@/lib/query-options"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
@@ -25,7 +25,7 @@ export function CreateOrgForm({ onSuccess }: CreateOrgFormProps) {
       if (result.error) throw result.error
       if (result?.data?.id) {
         try {
-          await setOrgCreatorAsAdminFn({
+          await setOrgCreatorAsOwnerFn({
             data: { organizationId: result.data.id },
           })
         } catch {
@@ -39,7 +39,7 @@ export function CreateOrgForm({ onSuccess }: CreateOrgFormProps) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: orgsQueryOptions.queryKey }),
         queryClient.invalidateQueries({
-          queryKey: activeOrgIdQueryOptions.queryKey,
+          queryKey: sessionQueryOptions.queryKey,
         }),
       ])
       if (result?.data?.id) {

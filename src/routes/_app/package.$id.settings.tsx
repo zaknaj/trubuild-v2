@@ -35,17 +35,11 @@ import { addPackageMemberFn, removePackageMemberFn } from "@/fn"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 
 export const Route = createFileRoute("/_app/package/$id/settings")({
-  loader: async ({ params, context }) => {
-    void context.queryClient.ensureQueryData(
-      packageDetailQueryOptions(params.id)
-    )
-    void context.queryClient.ensureQueryData(
-      packageMembersQueryOptions(params.id)
-    )
-    void context.queryClient.ensureQueryData(
-      packageAccessQueryOptions(params.id)
-    )
-    void context.queryClient.ensureQueryData(orgMembersQueryOptions)
+  loader: ({ params, context }) => {
+    context.queryClient.prefetchQuery(packageDetailQueryOptions(params.id))
+    context.queryClient.prefetchQuery(packageMembersQueryOptions(params.id))
+    context.queryClient.prefetchQuery(packageAccessQueryOptions(params.id))
+    context.queryClient.prefetchQuery(orgMembersQueryOptions)
   },
   component: RouteComponent,
 })

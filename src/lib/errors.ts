@@ -7,6 +7,7 @@ export const ERRORS = {
     `You don't have permission to remove members from this ${resource}.`,
   NO_PERMISSION_ADMIN: "You don't have permission to perform this action.",
   NO_PERMISSION_CREATE_PROJECT: "You don't have permission to create projects.",
+  NO_PERMISSION_CREATE_PACKAGE: "You don't have permission to create packages.",
   MUST_BE_LOGGED_IN: "You must be logged in.",
   MUST_BE_LOGGED_IN_WITH_ORG: "You must be logged in with an active organization.",
 } as const

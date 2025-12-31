@@ -4,7 +4,7 @@ import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query"
 import { Suspense, useEffect } from "react"
 import { Navbar } from "@/components/Navbar"
 import {
-  activeOrgIdQueryOptions,
+  authBootstrapQueryOptions,
   orgsQueryOptions,
   sessionQueryOptions,
 } from "@/lib/query-options"
@@ -12,15 +12,16 @@ import {
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context }) => {
     const { queryClient } = context
-    const session = await queryClient.ensureQueryData(sessionQueryOptions)
-    if (!session) {
-      throw redirect({ to: "/login" })
-    }
-    const [orgs] = await Promise.all([
-      queryClient.ensureQueryData(orgsQueryOptions),
-      queryClient.ensureQueryData(activeOrgIdQueryOptions),
-    ])
-    if (orgs.length === 0) {
+    const { session, orgs } = await queryClient.ensureQueryData(
+      authBootstrapQueryOptions
+    )
+
+    // Prime the individual caches so components using these queryOptions
+    // don't immediately refetch.
+    queryClient.setQueryData(sessionQueryOptions.queryKey, session)
+    queryClient.setQueryData(orgsQueryOptions.queryKey, orgs)
+
+    if (!session || orgs.length === 0) {
       throw redirect({ to: "/login" })
     }
   },
@@ -28,17 +29,20 @@ export const Route = createFileRoute("/_app")({
 })
 
 function RouteComponent() {
-  const { data: activeOrg } = useSuspenseQuery(activeOrgIdQueryOptions)
+  const { data: session } = useSuspenseQuery(sessionQueryOptions)
   const { data: orgs } = useSuspenseQuery(orgsQueryOptions)
   const queryClient = useQueryClient()
+  const activeOrgId = session?.session?.activeOrganizationId
 
   useEffect(() => {
-    if (orgs.length > 0 && !activeOrg) {
+    if (orgs.length > 0 && !activeOrgId) {
       setActiveOrgFn({ data: { organizationId: orgs[0].id } }).then(() => {
-        queryClient.setQueryData(activeOrgIdQueryOptions.queryKey, orgs[0].id)
+        queryClient.invalidateQueries({
+          queryKey: sessionQueryOptions.queryKey,
+        })
       })
     }
-  }, [orgs, activeOrg, queryClient])
+  }, [orgs, activeOrgId, queryClient])
 
   return (
     <div className="w-screen overflow-hidden h-screen flex flex-col text-sm">

@@ -8,15 +8,9 @@ import {
 
 export const Route = createFileRoute("/_app/project/$id")({
   loader: ({ params, context }) => {
-    void context.queryClient.ensureQueryData(
-      projectDetailQueryOptions(params.id)
-    )
-    void context.queryClient.ensureQueryData(
-      projectAccessQueryOptions(params.id)
-    )
-    void context.queryClient.ensureQueryData(
-      projectMembersQueryOptions(params.id)
-    )
+    context.queryClient.prefetchQuery(projectDetailQueryOptions(params.id))
+    context.queryClient.prefetchQuery(projectAccessQueryOptions(params.id))
+    context.queryClient.prefetchQuery(projectMembersQueryOptions(params.id))
   },
   component: RouteComponent,
 })

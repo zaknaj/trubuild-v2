@@ -2,7 +2,6 @@ import { useNavigate } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { CreateOrgForm } from "@/components/CreateOrgForm"
-import { activeOrgIdQueryOptions } from "@/lib/query-options"
 
 interface CreateOrgModalProps {
   open: boolean
@@ -13,16 +12,11 @@ export function CreateOrgModal({ open, onOpenChange }: CreateOrgModalProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const handleSuccess = (orgId: string) => {
-    queryClient.setQueryData(activeOrgIdQueryOptions.queryKey, orgId)
+  const handleSuccess = () => {
     queryClient.removeQueries({
       predicate: (query) => {
         const key = query.queryKey[0]
-        return (
-          key !== "session" &&
-          key !== "organizations" &&
-          key !== "active-organization-id"
-        )
+        return key !== "session" && key !== "organizations"
       },
     })
     onOpenChange(false)

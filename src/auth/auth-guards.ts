@@ -4,6 +4,7 @@ import { ERRORS } from "@/lib/errors"
 import { db } from "@/db"
 import { member } from "@/db/schema"
 import { and, eq } from "drizzle-orm"
+import { getPackageAccess, getProjectAccess } from "@/lib/permissions"
 
 export type AuthContext = {
   userId: string
@@ -87,4 +88,72 @@ export async function requireCanCreateProject(ctx: AuthContext) {
     throw new Error(ERRORS.NO_PERMISSION_CREATE_PROJECT)
   }
   return orgMember
+}
+
+/**
+ * Require any (non-none) access to a project.
+ */
+export async function requireProjectAccess(
+  ctx: AuthContext,
+  projectId: string
+) {
+  const accessInfo = await getProjectAccess(
+    ctx.userId,
+    projectId,
+    ctx.activeOrgId
+  )
+  if (accessInfo.access === "none") throw new Error(ERRORS.NO_ACCESS("project"))
+  return accessInfo
+}
+
+/**
+ * Require full access to a project.
+ */
+export async function requireProjectFullAccess(
+  ctx: AuthContext,
+  projectId: string,
+  errorMessage?: string
+) {
+  const accessInfo = await getProjectAccess(
+    ctx.userId,
+    projectId,
+    ctx.activeOrgId
+  )
+  if (accessInfo.access !== "full")
+    throw new Error(errorMessage ?? ERRORS.NO_PERMISSION_INVITE("project"))
+  return accessInfo
+}
+
+/**
+ * Require any (non-none) access to a package.
+ */
+export async function requirePackageAccess(
+  ctx: AuthContext,
+  packageId: string
+) {
+  const accessInfo = await getPackageAccess(
+    ctx.userId,
+    packageId,
+    ctx.activeOrgId
+  )
+  if (accessInfo.access === "none") throw new Error(ERRORS.NO_ACCESS("package"))
+  return accessInfo
+}
+
+/**
+ * Require full access to a package.
+ */
+export async function requirePackageFullAccess(
+  ctx: AuthContext,
+  packageId: string,
+  errorMessage?: string
+) {
+  const accessInfo = await getPackageAccess(
+    ctx.userId,
+    packageId,
+    ctx.activeOrgId
+  )
+  if (accessInfo.access !== "full")
+    throw new Error(errorMessage ?? ERRORS.NO_PERMISSION_INVITE("package"))
+  return accessInfo
 }

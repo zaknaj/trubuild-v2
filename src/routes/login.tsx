@@ -1,7 +1,11 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { createMiddleware } from "@tanstack/react-start"
 import { useState, useEffect } from "react"
-import { getSession, linkPendingMembershipsFn, getOrgsFn } from "@/fn"
+import {
+  getAuthBootstrapFn,
+  getOrgsFn,
+  linkPendingMembershipsFn,
+} from "@/fn"
 import { authClient } from "@/auth/auth-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,13 +13,8 @@ import { Spinner } from "@/components/ui/spinner"
 import { CreateOrgForm } from "@/components/CreateOrgForm"
 
 const redirectIfAuthedWithOrg = createMiddleware().server(async ({ next }) => {
-  const session = await getSession()
-  if (session) {
-    const orgs = await getOrgsFn()
-    if (orgs.length > 0) {
-      throw redirect({ to: "/" })
-    }
-  }
+  const { session, orgs } = await getAuthBootstrapFn()
+  if (session && orgs.length > 0) throw redirect({ to: "/" })
   return next()
 })
 
@@ -25,12 +24,11 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
   server: { middleware: [redirectIfAuthedWithOrg] },
   loader: async () => {
-    const session = await getSession()
-    if (session) {
-      const orgs = await getOrgsFn()
-      return { needsOrg: orgs.length === 0, isLoggedIn: true }
+    const { session, orgs } = await getAuthBootstrapFn()
+    return {
+      needsOrg: !!session && orgs.length === 0,
+      isLoggedIn: !!session,
     }
-    return { needsOrg: false, isLoggedIn: false }
   },
 })
 
@@ -38,16 +36,17 @@ type LoginState = "login" | "create-org"
 
 function LoginPage() {
   const { needsOrg, isLoggedIn } = Route.useLoaderData()
+  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [loginState, setLoginState] = useState<LoginState>(
-    needsOrg ? "create-org" : "login"
-  )
+  const [loginState, setLoginState] = useState<LoginState>("login")
 
   useEffect(() => {
-    if (needsOrg && isLoggedIn) {
-      setLoginState("create-org")
-    }
+    // Keep UI in sync with auth state from the loader.
+    // This prevents the create-org view from "sticking" after a logout.
+    if (!isLoggedIn) setLoginState("login")
+    else if (needsOrg) setLoginState("create-org")
+    else setLoginState("login")
   }, [needsOrg, isLoggedIn])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,7 +64,7 @@ function LoginPage() {
         setIsLoading(false)
         return
       }
-      window.location.href = "/"
+      navigate({ to: "/" })
       return
     }
 
@@ -82,7 +81,7 @@ function LoginPage() {
         setIsLoading(false)
         return
       }
-      window.location.href = "/"
+      navigate({ to: "/" })
       return
     }
 
@@ -129,7 +128,7 @@ function LoginPage() {
             </form>
           </>
         ) : (
-          <CreateOrgForm onSuccess={() => (window.location.href = "/")} />
+          <CreateOrgForm onSuccess={() => navigate({ to: "/" })} />
         )}
       </div>
     </div>

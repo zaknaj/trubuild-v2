@@ -26,7 +26,8 @@ export const AccountNavButton = () => {
   const handleLogout = async () => {
     await authClient.signOut()
     queryClient.clear()
-    navigate({ to: "/login" })
+    // Hard navigate to ensure auth cookies + loader state are definitely fresh.
+    window.location.href = "/login"
   }
 
   const handleStopImpersonating = async () => {

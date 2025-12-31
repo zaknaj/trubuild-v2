@@ -25,8 +25,8 @@ import type { Project } from "@/lib/types"
 
 export const Route = createFileRoute("/_app/all-projects")({
   loader: ({ context }) => {
-    void context.queryClient.ensureQueryData(projectsQueryOptions)
-    void context.queryClient.ensureQueryData(currentUserOrgRoleQueryOptions)
+    context.queryClient.prefetchQuery(projectsQueryOptions)
+    context.queryClient.prefetchQuery(currentUserOrgRoleQueryOptions)
   },
   component: RouteComponent,
 })

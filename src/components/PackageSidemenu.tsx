@@ -20,16 +20,7 @@ import {
   packageDetailQueryOptions,
   packageMembersQueryOptions,
 } from "@/lib/query-options"
-import type { Asset } from "@/lib/types"
-
-type PackageMember = {
-  id: string
-  role: string
-  userId: string | null
-  email: string
-  userName: string | null
-  userImage: string | null
-}
+import type { Asset, PackageMember } from "@/lib/types"
 
 export function PackageSidemenu({ packageId }: { packageId: string }) {
   const { data: packageData } = useSuspenseQuery(packageDetailQueryOptions(packageId))

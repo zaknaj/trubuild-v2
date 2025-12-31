@@ -14,7 +14,7 @@ import {
   useSuspenseQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { activeOrgIdQueryOptions, orgsQueryOptions } from "@/lib/query-options"
+import { orgsQueryOptions, sessionQueryOptions } from "@/lib/query-options"
 import { PlusIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Spinner } from "@/components/ui/spinner"
@@ -25,8 +25,9 @@ export const OrgNavButton = () => {
   const [open, setOpen] = useState(false)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const { data: orgs } = useSuspenseQuery(orgsQueryOptions)
-  const { data: activeOrg } = useSuspenseQuery(activeOrgIdQueryOptions)
-  const activeOrganization = orgs.find((org) => org.id === activeOrg)
+  const { data: session } = useSuspenseQuery(sessionQueryOptions)
+  const activeOrgId = session?.session?.activeOrganizationId
+  const activeOrganization = orgs.find((org) => org.id === activeOrgId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -41,15 +42,11 @@ export const OrgNavButton = () => {
       queryClient.removeQueries({
         predicate: (query) => {
           const key = query.queryKey[0]
-          return (
-            key !== "session" &&
-            key !== "organizations" &&
-            key !== "active-organization-id"
-          )
+          return key !== "session" && key !== "organizations"
         },
       })
       queryClient.invalidateQueries({
-        queryKey: activeOrgIdQueryOptions.queryKey,
+        queryKey: sessionQueryOptions.queryKey,
       })
       setOpen(false)
       navigate({ to: "/" })
@@ -73,7 +70,7 @@ export const OrgNavButton = () => {
         <DropdownMenuContent className="min-w-56 w-fit">
           <DropdownMenuLabel>My organizations</DropdownMenuLabel>
           {orgs.map((org) => {
-            const isCurrentOrg = org.id === activeOrg
+            const isCurrentOrg = org.id === activeOrgId
             const isSwitchingToThis = isSwitching && switchingOrgId === org.id
             const isDisabled = isCurrentOrg || isSwitching
 

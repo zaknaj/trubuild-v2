@@ -33,7 +33,6 @@ import {
   sessionQueryOptions,
 } from "@/lib/query-options"
 import type { OrgMember } from "@/lib/types"
-import { Sidemenu } from "@/components/Sidemenu"
 
 const orgRoleLabels: Record<string, string> = {
   owner: "Admin",
@@ -44,9 +43,9 @@ const orgRoleLabels: Record<string, string> = {
 export const Route = createFileRoute("/_app/settings")({
   component: RouteComponent,
   loader: ({ context }) => {
-    void context.queryClient.ensureQueryData(orgMembersQueryOptions)
-    void context.queryClient.ensureQueryData(orgPendingInvitesQueryOptions)
-    void context.queryClient.ensureQueryData(orgsQueryOptions)
+    context.queryClient.prefetchQuery(orgMembersQueryOptions)
+    context.queryClient.prefetchQuery(orgPendingInvitesQueryOptions)
+    context.queryClient.prefetchQuery(orgsQueryOptions)
   },
 })
 

@@ -37,16 +37,10 @@ import { Breadcrumbs } from "@/components/Breadcrumbs"
 
 export const Route = createFileRoute("/_app/project/$id/settings")({
   loader: ({ params, context }) => {
-    void context.queryClient.ensureQueryData(
-      projectDetailQueryOptions(params.id)
-    )
-    void context.queryClient.ensureQueryData(
-      projectMembersQueryOptions(params.id)
-    )
-    void context.queryClient.ensureQueryData(
-      projectAccessQueryOptions(params.id)
-    )
-    void context.queryClient.ensureQueryData(orgMembersQueryOptions)
+    context.queryClient.prefetchQuery(projectDetailQueryOptions(params.id))
+    context.queryClient.prefetchQuery(projectMembersQueryOptions(params.id))
+    context.queryClient.prefetchQuery(projectAccessQueryOptions(params.id))
+    context.queryClient.prefetchQuery(orgMembersQueryOptions)
   },
   component: RouteComponent,
 })

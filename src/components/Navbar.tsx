@@ -12,7 +12,7 @@ export const Navbar = () => {
         <div className="w-[1.5px] h-4 opacity-20 bg-white"></div>
         <OrgNavButton />
       </div>
-      <div className="w-fit flex items-center gap-3 justify-center">
+      <div className="w-fit flex items-center gap-2 justify-center">
         <Link
           to="/"
           className="rounded py-1.5  font-medium flex items-center gap-1 px-2.5 border-[0.5px] border-transparent hover:bg-black/10 text-white/60"
