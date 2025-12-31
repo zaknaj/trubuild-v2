@@ -1,11 +1,12 @@
 import { db } from "@/db"
-import { asset, pkg, proj, packageMember } from "@/db/schema"
+import { asset, pkg, proj, packageMember, member } from "@/db/schema"
 import { createServerFn } from "@tanstack/react-start"
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, isNotNull, or } from "drizzle-orm"
 import { z } from "zod"
 import {
   getAuthContext,
   requirePackageAccess,
+  requirePackageFullAccess,
   requireProjectFullAccess,
 } from "../auth/auth-guards"
 import { ERRORS } from "@/lib/errors"
@@ -128,3 +129,122 @@ export const createAssetFn = createServerFn({ method: "POST" })
 
     return newAsset
   })
+
+export const renamePackageFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({ packageId: z.uuid(), name: z.string().trim().min(1) })
+  )
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    await requirePackageFullAccess(
+      ctx,
+      data.packageId,
+      ERRORS.NO_PERMISSION_RENAME("package")
+    )
+
+    const [updated] = await db
+      .update(pkg)
+      .set({ name: data.name })
+      .where(eq(pkg.id, data.packageId))
+      .returning({ id: pkg.id, name: pkg.name })
+
+    return updated
+  })
+
+export const archivePackageFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ packageId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    await requirePackageFullAccess(
+      ctx,
+      data.packageId,
+      ERRORS.NO_PERMISSION_ARCHIVE("package")
+    )
+
+    await db
+      .update(pkg)
+      .set({ archivedAt: new Date() })
+      .where(eq(pkg.id, data.packageId))
+
+    return { success: true }
+  })
+
+export const restorePackageFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ packageId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    await requirePackageFullAccess(
+      ctx,
+      data.packageId,
+      ERRORS.NO_PERMISSION_RESTORE("package")
+    )
+
+    await db
+      .update(pkg)
+      .set({ archivedAt: null })
+      .where(eq(pkg.id, data.packageId))
+
+    return { success: true }
+  })
+
+export const listArchivedPackagesFn = createServerFn().handler(async () => {
+  const ctx = await getAuthContext()
+
+  const [orgMember] = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(
+      and(
+        eq(member.userId, ctx.userId),
+        eq(member.organizationId, ctx.activeOrgId)
+      )
+    )
+    .limit(1)
+
+  if (orgMember?.role === "owner") {
+    const packages = await db
+      .select({
+        id: pkg.id,
+        name: pkg.name,
+        projectId: pkg.projectId,
+        projectName: proj.name,
+        archivedAt: pkg.archivedAt,
+      })
+      .from(pkg)
+      .innerJoin(proj, eq(pkg.projectId, proj.id))
+      .where(
+        and(eq(proj.organizationId, ctx.activeOrgId), isNotNull(pkg.archivedAt))
+      )
+      .orderBy(desc(pkg.archivedAt))
+    return packages
+  }
+
+  const packages = await db
+    .select({
+      id: pkg.id,
+      name: pkg.name,
+      projectId: pkg.projectId,
+      projectName: proj.name,
+      archivedAt: pkg.archivedAt,
+    })
+    .from(pkg)
+    .innerJoin(proj, eq(pkg.projectId, proj.id))
+    .leftJoin(
+      packageMember,
+      and(
+        eq(packageMember.packageId, pkg.id),
+        eq(packageMember.userId, ctx.userId)
+      )
+    )
+    .where(
+      and(
+        eq(proj.organizationId, ctx.activeOrgId),
+        isNotNull(pkg.archivedAt),
+        or(eq(proj.userId, ctx.userId), eq(packageMember.userId, ctx.userId))
+      )
+    )
+    .groupBy(pkg.id, proj.name)
+    .orderBy(desc(pkg.archivedAt))
+
+  return packages
+})

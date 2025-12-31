@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { useState } from "react"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,7 +19,17 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer"
-import { UserPlus, Clock, X, Loader2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { UserPlus, Clock, X, Loader2, Archive } from "lucide-react"
 import {
   useSuspenseQuery,
   useMutation,
@@ -30,10 +40,13 @@ import {
   projectMembersQueryOptions,
   projectAccessQueryOptions,
   orgMembersQueryOptions,
+  projectsQueryOptions,
+  archivedProjectsQueryOptions,
 } from "@/lib/query-options"
-import { addProjectMemberFn, removeProjectMemberFn } from "@/fn"
+import { addProjectMemberFn, removeProjectMemberFn, archiveProjectFn, renameProjectFn } from "@/fn"
 import type { Member } from "@/lib/types"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
+import { toast } from "sonner"
 
 export const Route = createFileRoute("/_app/project/$id/settings")({
   loader: ({ params, context }) => {
@@ -49,6 +62,7 @@ type ProjectRole = "project_lead" | "commercial_lead" | "technical_lead"
 
 function RouteComponent() {
   const { id } = Route.useParams()
+  const navigate = useNavigate()
   const { data: projectData } = useSuspenseQuery(projectDetailQueryOptions(id))
   const { data: members } = useSuspenseQuery(projectMembersQueryOptions(id))
   const { data: accessInfo } = useSuspenseQuery(projectAccessQueryOptions(id))
@@ -59,9 +73,17 @@ function RouteComponent() {
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<ProjectRole>("commercial_lead")
   const [removingEmail, setRemovingEmail] = useState<string | null>(null)
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false)
+  const [projectName, setProjectName] = useState("")
 
   const { project } = projectData
   const canInvite = accessInfo.access === "full"
+  const canArchive = accessInfo.access === "full"
+  const canRename = accessInfo.access === "full"
+
+  useEffect(() => {
+    setProjectName(project.name)
+  }, [project.name])
 
   // Filter org members who are not already project members
   const projectMemberEmails = new Set(members.map((m: Member) => m.email))
@@ -73,6 +95,7 @@ function RouteComponent() {
     mutationFn: (data: { email: string; role: ProjectRole }) =>
       addProjectMemberFn({ data: { projectId: project.id, ...data } }),
     onSuccess: () => {
+      toast.success("Invitation sent")
       queryClient.invalidateQueries({
         queryKey: projectMembersQueryOptions(id).queryKey,
       })
@@ -95,6 +118,37 @@ function RouteComponent() {
       setRemovingEmail(null)
     },
   })
+
+  const archiveProject = useMutation({
+    mutationFn: () => archiveProjectFn({ data: { projectId: project.id } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectsQueryOptions.queryKey })
+      queryClient.invalidateQueries({ queryKey: archivedProjectsQueryOptions.queryKey })
+      navigate({ to: "/all-projects" })
+    },
+  })
+
+  const renameProject = useMutation({
+    mutationFn: (name: string) => renameProjectFn({ data: { projectId: project.id, name } }),
+    onMutate: () => {
+      toast.loading("Renaming project...", { id: "rename-project" })
+    },
+    onSuccess: () => {
+      toast.success("Project renamed", { id: "rename-project" })
+      queryClient.invalidateQueries({ queryKey: projectDetailQueryOptions(id).queryKey })
+      queryClient.invalidateQueries({ queryKey: projectsQueryOptions.queryKey })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to rename project", { id: "rename-project" })
+    },
+  })
+
+  const handleRename = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmedName = projectName.trim()
+    if (!trimmedName || trimmedName === project.name) return
+    renameProject.mutate(trimmedName)
+  }
 
   const closeDrawer = () => {
     setIsInviteOpen(false)
@@ -135,6 +189,32 @@ function RouteComponent() {
             {project.name}
           </h1>
         </div>
+
+        {/* Rename Project */}
+        {canRename && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium">Project Name</h2>
+              <p className="text-sm text-muted-foreground">
+                Change the display name of this project
+              </p>
+            </div>
+            <form onSubmit={handleRename} className="flex gap-2">
+              <Input
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                disabled={renameProject.isPending}
+                className="max-w-xs"
+              />
+              <Button
+                type="submit"
+                disabled={renameProject.isPending || !projectName.trim() || projectName.trim() === project.name}
+              >
+                {renameProject.isPending ? "Saving..." : "Save"}
+              </Button>
+            </form>
+          </section>
+        )}
 
         {/* Project Members */}
         <section className="space-y-4">
@@ -250,7 +330,67 @@ function RouteComponent() {
             </p>
           )}
         </section>
+
+        {/* Danger Zone */}
+        {canArchive && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium text-destructive">Danger Zone</h2>
+              <p className="text-sm text-muted-foreground">
+                Irreversible and destructive actions
+              </p>
+            </div>
+            <div className="border border-destructive/30 rounded-lg p-4 bg-destructive/5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">Archive this project</p>
+                  <p className="text-sm text-muted-foreground">
+                    The project and all its packages will be hidden from view. You can restore it later.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setIsArchiveDialogOpen(true)}
+                  className="gap-1.5 shrink-0"
+                >
+                  <Archive className="size-4" />
+                  Archive
+                </Button>
+              </div>
+              {archiveProject.error && (
+                <p className="text-sm text-red-500 mt-2">
+                  {archiveProject.error instanceof Error
+                    ? archiveProject.error.message
+                    : "Failed to archive project"}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
       </div>
+
+      <AlertDialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will archive "{project.name}" and all its packages. The project will be hidden from view but can be restored later from the archived section.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archiveProject.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => archiveProject.mutate()}
+              disabled={archiveProject.isPending}
+            >
+              {archiveProject.isPending ? "Archiving..." : "Archive project"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Drawer open={isInviteOpen} direction="right" onClose={closeDrawer}>
         <DrawerContent className="min-w-[400px]">
           <form onSubmit={handleAddMember} className="flex flex-col h-full">

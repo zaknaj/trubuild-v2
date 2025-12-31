@@ -42,6 +42,7 @@ export const proj = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    archivedAt: timestamp("archived_at"),
     ...timestamps,
   },
   (table) => [
@@ -58,6 +59,7 @@ export const pkg = pgTable(
     projectId: uuid("project_id")
       .notNull()
       .references(() => proj.id, { onDelete: "cascade" }),
+    archivedAt: timestamp("archived_at"),
     ...timestamps,
   },
   (table) => [index("pkg_projectId_idx").on(table.projectId)]

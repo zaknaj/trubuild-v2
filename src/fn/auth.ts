@@ -167,17 +167,30 @@ export const setOrgCreatorAsOwnerFn = createServerFn({ method: "POST" })
 export const setOrgCreatorAsAdminFn = setOrgCreatorAsOwnerFn
 
 export const updateOrganizationFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ name: z.string().trim().min(1) }))
+  .inputValidator(
+    z.object({
+      name: z.string().trim().min(1).optional(),
+      logo: z.string().optional(),
+    })
+  )
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
     await requireOrgOwner(ctx)
     const headers = getRequestHeaders()
 
+    const updateData: { name?: string; logo?: string } = {}
+    if (data.name) updateData.name = data.name
+    if (data.logo) updateData.logo = data.logo
+
+    if (Object.keys(updateData).length === 0) {
+      return { success: true }
+    }
+
     await auth.api.updateOrganization({
       headers,
       body: {
         organizationId: ctx.activeOrgId,
-        data: { name: data.name },
+        data: updateData,
       },
     })
 
@@ -185,13 +198,26 @@ export const updateOrganizationFn = createServerFn({ method: "POST" })
   })
 
 export const updateProfileFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ name: z.string().trim().min(1) }))
+  .inputValidator(
+    z.object({
+      name: z.string().trim().min(1).optional(),
+      image: z.string().optional(),
+    })
+  )
   .handler(async ({ data }) => {
     const headers = getRequestHeaders()
 
+    const updateData: { name?: string; image?: string } = {}
+    if (data.name) updateData.name = data.name
+    if (data.image) updateData.image = data.image
+
+    if (Object.keys(updateData).length === 0) {
+      return { success: true }
+    }
+
     await auth.api.updateUser({
       headers,
-      body: { name: data.name },
+      body: updateData,
     })
 
     return { success: true }

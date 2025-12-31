@@ -39,7 +39,17 @@ export const AccountNavButton = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="navGhost">
-          <div className="size-6 rounded-full bg-white/20" />
+          {user?.image ? (
+            <img
+              src={user.image}
+              alt=""
+              className="size-6 rounded-full object-cover"
+            />
+          ) : (
+            <div className="size-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-medium uppercase">
+              {user?.name?.charAt(0) || user?.email?.charAt(0)}
+            </div>
+          )}
           {user?.name ? (
             <span className="font-medium capitalize">{user.name}</span>
           ) : (

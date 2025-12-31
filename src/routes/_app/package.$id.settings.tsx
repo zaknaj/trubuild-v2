@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { useState } from "react"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,7 +19,17 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer"
-import { UserPlus, Clock, X, Loader2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { UserPlus, Clock, X, Loader2, Archive } from "lucide-react"
 import {
   useSuspenseQuery,
   useMutation,
@@ -30,9 +40,12 @@ import {
   packageMembersQueryOptions,
   packageAccessQueryOptions,
   orgMembersQueryOptions,
+  projectDetailQueryOptions,
+  archivedPackagesQueryOptions,
 } from "@/lib/query-options"
-import { addPackageMemberFn, removePackageMemberFn } from "@/fn"
+import { addPackageMemberFn, removePackageMemberFn, archivePackageFn, renamePackageFn } from "@/fn"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
+import { toast } from "sonner"
 
 export const Route = createFileRoute("/_app/package/$id/settings")({
   loader: ({ params, context }) => {
@@ -48,6 +61,7 @@ type PackageRole = "package_lead" | "commercial_team" | "technical_team"
 
 function RouteComponent() {
   const { id } = Route.useParams()
+  const navigate = useNavigate()
   const { data: packageData } = useSuspenseQuery(packageDetailQueryOptions(id))
   const { data: members } = useSuspenseQuery(packageMembersQueryOptions(id))
   const { data: accessInfo } = useSuspenseQuery(packageAccessQueryOptions(id))
@@ -60,8 +74,16 @@ function RouteComponent() {
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<PackageRole>("commercial_team")
   const [removingEmail, setRemovingEmail] = useState<string | null>(null)
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false)
+  const [packageName, setPackageName] = useState("")
 
   const canInvite = accessInfo.access === "full"
+  const canArchive = accessInfo.access === "full"
+  const canRename = accessInfo.access === "full"
+
+  useEffect(() => {
+    setPackageName(pkg.name)
+  }, [pkg.name])
 
   // Filter org members who are not already package members
   const packageMemberEmails = new Set(members.map((m) => m.email))
@@ -73,6 +95,7 @@ function RouteComponent() {
     mutationFn: (data: { email: string; role: PackageRole }) =>
       addPackageMemberFn({ data: { packageId: pkg.id, ...data } }),
     onSuccess: () => {
+      toast.success("Invitation sent")
       queryClient.invalidateQueries({
         queryKey: packageMembersQueryOptions(id).queryKey,
       })
@@ -95,6 +118,37 @@ function RouteComponent() {
       setRemovingEmail(null)
     },
   })
+
+  const archivePackage = useMutation({
+    mutationFn: () => archivePackageFn({ data: { packageId: pkg.id } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectDetailQueryOptions(project.id).queryKey })
+      queryClient.invalidateQueries({ queryKey: archivedPackagesQueryOptions.queryKey })
+      navigate({ to: "/project/$id", params: { id: project.id } })
+    },
+  })
+
+  const renamePackage = useMutation({
+    mutationFn: (name: string) => renamePackageFn({ data: { packageId: pkg.id, name } }),
+    onMutate: () => {
+      toast.loading("Renaming package...", { id: "rename-package" })
+    },
+    onSuccess: () => {
+      toast.success("Package renamed", { id: "rename-package" })
+      queryClient.invalidateQueries({ queryKey: packageDetailQueryOptions(id).queryKey })
+      queryClient.invalidateQueries({ queryKey: projectDetailQueryOptions(project.id).queryKey })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to rename package", { id: "rename-package" })
+    },
+  })
+
+  const handleRename = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmedName = packageName.trim()
+    if (!trimmedName || trimmedName === pkg.name) return
+    renamePackage.mutate(trimmedName)
+  }
 
   const closeDrawer = () => {
     setIsInviteOpen(false)
@@ -134,6 +188,32 @@ function RouteComponent() {
           </p>
           <h1 className="text-2xl font-semibold text-slate-900">{pkg.name}</h1>
         </div>
+
+        {/* Rename Package */}
+        {canRename && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium">Package Name</h2>
+              <p className="text-sm text-muted-foreground">
+                Change the display name of this package
+              </p>
+            </div>
+            <form onSubmit={handleRename} className="flex gap-2">
+              <Input
+                value={packageName}
+                onChange={(e) => setPackageName(e.target.value)}
+                disabled={renamePackage.isPending}
+                className="max-w-xs"
+              />
+              <Button
+                type="submit"
+                disabled={renamePackage.isPending || !packageName.trim() || packageName.trim() === pkg.name}
+              >
+                {renamePackage.isPending ? "Saving..." : "Save"}
+              </Button>
+            </form>
+          </section>
+        )}
 
         {/* Package Members */}
         <section className="space-y-4">
@@ -249,7 +329,67 @@ function RouteComponent() {
             </p>
           )}
         </section>
+
+        {/* Danger Zone */}
+        {canArchive && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium text-destructive">Danger Zone</h2>
+              <p className="text-sm text-muted-foreground">
+                Irreversible and destructive actions
+              </p>
+            </div>
+            <div className="border border-destructive/30 rounded-lg p-4 bg-destructive/5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">Archive this package</p>
+                  <p className="text-sm text-muted-foreground">
+                    The package will be hidden from view. You can restore it later.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setIsArchiveDialogOpen(true)}
+                  className="gap-1.5 shrink-0"
+                >
+                  <Archive className="size-4" />
+                  Archive
+                </Button>
+              </div>
+              {archivePackage.error && (
+                <p className="text-sm text-red-500 mt-2">
+                  {archivePackage.error instanceof Error
+                    ? archivePackage.error.message
+                    : "Failed to archive package"}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
       </div>
+
+      <AlertDialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive package?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will archive "{pkg.name}". The package will be hidden from view but can be restored later from the archived section.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archivePackage.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => archivePackage.mutate()}
+              disabled={archivePackage.isPending}
+            >
+              {archivePackage.isPending ? "Archiving..." : "Archive package"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Drawer open={isInviteOpen} direction="right" onClose={closeDrawer}>
         <DrawerContent className="min-w-[400px]">
           <form onSubmit={handleAddMember} className="flex flex-col h-full">

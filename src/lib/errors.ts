@@ -5,6 +5,12 @@ export const ERRORS = {
     `You don't have permission to add members to this ${resource}.`,
   NO_PERMISSION_REMOVE: (resource: string) =>
     `You don't have permission to remove members from this ${resource}.`,
+  NO_PERMISSION_ARCHIVE: (resource: string) =>
+    `You don't have permission to archive this ${resource}.`,
+  NO_PERMISSION_RESTORE: (resource: string) =>
+    `You don't have permission to restore this ${resource}.`,
+  NO_PERMISSION_RENAME: (resource: string) =>
+    `You don't have permission to rename this ${resource}.`,
   NO_PERMISSION_ADMIN: "You don't have permission to perform this action.",
   NO_PERMISSION_CREATE_PROJECT: "You don't have permission to create projects.",
   NO_PERMISSION_CREATE_PACKAGE: "You don't have permission to create packages.",

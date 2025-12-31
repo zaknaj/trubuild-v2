@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { inviteMemberFn, updateOrganizationFn, updateProfileFn } from "@/fn"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,6 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { UserPlus, Upload } from "lucide-react"
 import {
   useSuspenseQuery,
@@ -33,6 +38,16 @@ import {
   sessionQueryOptions,
 } from "@/lib/query-options"
 import type { OrgMember } from "@/lib/types"
+import { toast } from "sonner"
+
+function toBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 const orgRoleLabels: Record<string, string> = {
   owner: "Admin",
@@ -60,6 +75,8 @@ function RouteComponent() {
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<"owner" | "admin" | "member">("member")
+  const profileImageInputRef = useRef<HTMLInputElement>(null)
+  const orgLogoInputRef = useRef<HTMLInputElement>(null)
 
   const activeOrg = orgs?.find(
     (o) => o.id === session?.session?.activeOrganizationId
@@ -81,24 +98,81 @@ function RouteComponent() {
   const canInvite = currentUserRole === "owner"
   const canEditOrg = currentUserRole === "owner"
 
-  const updateOrg = useMutation({
+  const updateOrgName = useMutation({
     mutationFn: (name: string) => updateOrganizationFn({ data: { name } }),
+    onMutate: () => {
+      toast.loading("Renaming organization...", { id: "update-org-name" })
+    },
     onSuccess: () => {
+      toast.success("Organization renamed", { id: "update-org-name" })
       queryClient.invalidateQueries({ queryKey: orgsQueryOptions.queryKey })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to rename organization", { id: "update-org-name" })
     },
   })
 
-  const updateProfile = useMutation({
-    mutationFn: (name: string) => updateProfileFn({ data: { name } }),
+  const updateOrgLogo = useMutation({
+    mutationFn: (logo: string) => updateOrganizationFn({ data: { logo } }),
+    onMutate: () => {
+      toast.loading("Uploading logo...", { id: "update-org-logo" })
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: sessionQueryOptions.queryKey })
+      toast.success("Logo updated", { id: "update-org-logo" })
+      queryClient.invalidateQueries({ queryKey: orgsQueryOptions.queryKey })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to update logo", { id: "update-org-logo" })
     },
   })
+
+  const updateProfileName = useMutation({
+    mutationFn: (name: string) => updateProfileFn({ data: { name } }),
+    onMutate: () => {
+      toast.loading("Updating name...", { id: "update-profile-name" })
+    },
+    onSuccess: () => {
+      toast.success("Name updated", { id: "update-profile-name" })
+      queryClient.invalidateQueries({ queryKey: sessionQueryOptions.queryKey })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to update name", { id: "update-profile-name" })
+    },
+  })
+
+  const updateProfileImage = useMutation({
+    mutationFn: (image: string) => updateProfileFn({ data: { image } }),
+    onMutate: () => {
+      toast.loading("Uploading image...", { id: "update-profile-image" })
+    },
+    onSuccess: () => {
+      toast.success("Profile image updated", { id: "update-profile-image" })
+      queryClient.invalidateQueries({ queryKey: sessionQueryOptions.queryKey })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to update image", { id: "update-profile-image" })
+    },
+  })
+
+  const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const base64 = await toBase64(file)
+    updateProfileImage.mutate(base64)
+  }
+
+  const handleOrgLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const base64 = await toBase64(file)
+    updateOrgLogo.mutate(base64)
+  }
 
   const inviteMember = useMutation({
     mutationFn: (data: { email: string; role: typeof role }) =>
       inviteMemberFn({ data }),
     onSuccess: () => {
+      toast.success("Invitation sent")
       queryClient.invalidateQueries({
         queryKey: orgMembersQueryOptions.queryKey,
       })
@@ -131,65 +205,61 @@ function RouteComponent() {
         <section className="space-y-4">
           <h2 className="text-lg font-medium">Profile</h2>
           <div className="border rounded-lg p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Profile Image</Label>
-              <div className="flex items-center gap-4">
-                {session?.user?.image ? (
-                  <img
-                    src={session.user.image}
-                    alt=""
-                    className="size-16 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="size-16 rounded-full bg-muted flex items-center justify-center text-lg font-medium uppercase text-muted-foreground">
-                    {session?.user?.name?.charAt(0) ||
-                      session?.user?.email?.charAt(0)}
-                  </div>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  disabled
-                >
-                  <Upload className="size-4" />
-                  Upload
-                </Button>
-              </div>
+            <div className="flex items-center gap-3">
+              <input
+                ref={profileImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleProfileImageChange}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => profileImageInputRef.current?.click()}
+                    disabled={updateProfileImage.isPending}
+                    className="relative size-12 rounded-full group cursor-pointer shrink-0"
+                  >
+                    {session?.user?.image ? (
+                      <img
+                        src={session.user.image}
+                        alt=""
+                        className="size-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="size-12 rounded-full bg-muted flex items-center justify-center text-lg font-medium uppercase text-muted-foreground">
+                        {session?.user?.name?.charAt(0) ||
+                          session?.user?.email?.charAt(0)}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Upload className="size-4 text-white" />
+                    </div>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Upload profile image</TooltipContent>
+              </Tooltip>
+              <Input
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                disabled={updateProfileName.isPending}
+                placeholder="Your name"
+                className="flex-1"
+              />
+              <Button
+                onClick={() => updateProfileName.mutate(profileName)}
+                disabled={
+                  updateProfileName.isPending ||
+                  profileName.trim() === session?.user?.name
+                }
+                size="sm"
+              >
+                Save
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="profileName">Name</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="profileName"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  disabled={updateProfile.isPending}
-                />
-                <Button
-                  onClick={() => updateProfile.mutate(profileName)}
-                  disabled={
-                    updateProfile.isPending ||
-                    profileName.trim() === session?.user?.name
-                  }
-                  size="sm"
-                >
-                  {updateProfile.isPending ? "Saving..." : "Save"}
-                </Button>
-              </div>
-              {updateProfile.error && (
-                <p className="text-sm text-red-500">
-                  {updateProfile.error instanceof Error
-                    ? updateProfile.error.message
-                    : "Failed to update profile"}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <p className="text-sm text-muted-foreground">
-                {session?.user?.email}
-              </p>
+            <div className="text-sm text-muted-foreground">
+              {session?.user?.email}
             </div>
           </div>
         </section>
@@ -197,58 +267,57 @@ function RouteComponent() {
         {canEditOrg && (
           <section className="space-y-4">
             <h2 className="text-lg font-medium">Organization</h2>
-            <div className="border rounded-lg p-4 space-y-4">
-              <div className="space-y-2">
-                <Label>Logo</Label>
-                <div className="flex items-center gap-4">
-                  {activeOrg?.logo ? (
-                    <img
-                      src={activeOrg.logo}
-                      alt=""
-                      className="size-16 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="size-16 rounded-lg bg-muted flex items-center justify-center text-lg font-medium uppercase text-muted-foreground">
-                      {activeOrg?.name?.charAt(0)}
-                    </div>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled
-                  >
-                    <Upload className="size-4" />
-                    Upload
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="orgName">Name</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="orgName"
-                    value={orgName}
-                    onChange={(e) => setOrgName(e.target.value)}
-                    disabled={updateOrg.isPending}
-                  />
-                  <Button
-                    onClick={() => updateOrg.mutate(orgName)}
-                    disabled={
-                      updateOrg.isPending || orgName.trim() === activeOrg?.name
-                    }
-                    size="sm"
-                  >
-                    {updateOrg.isPending ? "Saving..." : "Save"}
-                  </Button>
-                </div>
-                {updateOrg.error && (
-                  <p className="text-sm text-red-500">
-                    {updateOrg.error instanceof Error
-                      ? updateOrg.error.message
-                      : "Failed to update organization"}
-                  </p>
-                )}
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <input
+                  ref={orgLogoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleOrgLogoChange}
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => orgLogoInputRef.current?.click()}
+                      disabled={updateOrgLogo.isPending}
+                      className="relative size-12 rounded-lg group cursor-pointer shrink-0"
+                    >
+                      {activeOrg?.logo ? (
+                        <img
+                          src={activeOrg.logo}
+                          alt=""
+                          className="size-12 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="size-12 rounded-lg bg-muted flex items-center justify-center text-lg font-medium uppercase text-muted-foreground">
+                          {activeOrg?.name?.charAt(0)}
+                        </div>
+                      )}
+                      <div className="absolute inset-0 rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Upload className="size-4 text-white" />
+                      </div>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Upload organization logo</TooltipContent>
+                </Tooltip>
+                <Input
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  disabled={updateOrgName.isPending}
+                  placeholder="Organization name"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => updateOrgName.mutate(orgName)}
+                  disabled={
+                    updateOrgName.isPending || orgName.trim() === activeOrg?.name
+                  }
+                  size="sm"
+                >
+                  Save
+                </Button>
               </div>
             </div>
           </section>

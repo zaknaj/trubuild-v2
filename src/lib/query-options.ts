@@ -13,6 +13,8 @@ import {
   getProjectWithPackagesFn,
   getSessionFn,
   listProjectsFn,
+  listArchivedProjectsFn,
+  listArchivedPackagesFn,
 } from "@/fn"
 
 // ============================================================================
@@ -23,6 +25,8 @@ export const queryKeys = {
   session: () => ["session"] as const,
   orgs: () => ["organizations"] as const,
   projects: () => ["projects"] as const,
+  archivedProjects: () => ["archived-projects"] as const,
+  archivedPackages: () => ["archived-packages"] as const,
   project: {
     detail: (id: string) => ["project", id, "detail"] as const,
     members: (id: string) => ["project", id, "members"] as const,
@@ -70,6 +74,18 @@ export const projectsQueryOptions = queryOptions({
   queryKey: queryKeys.projects(),
   queryFn: listProjectsFn,
   staleTime: 30 * 1000, // 30s - structure doesn't change often
+})
+
+export const archivedProjectsQueryOptions = queryOptions({
+  queryKey: queryKeys.archivedProjects(),
+  queryFn: listArchivedProjectsFn,
+  staleTime: 30 * 1000, // 30s
+})
+
+export const archivedPackagesQueryOptions = queryOptions({
+  queryKey: queryKeys.archivedPackages(),
+  queryFn: listArchivedPackagesFn,
+  staleTime: 30 * 1000, // 30s
 })
 
 export const orgMembersQueryOptions = queryOptions({
