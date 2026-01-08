@@ -50,19 +50,19 @@ export const queryKeys = {
 
 export const authBootstrapQueryOptions = queryOptions({
   queryKey: ["auth", "bootstrap"] as const,
-  queryFn: getAuthBootstrapFn,
+  queryFn: () => getAuthBootstrapFn(),
   staleTime: 2 * 60 * 1000, // 2 min - small but used often for guards
 })
 
 export const sessionQueryOptions = queryOptions({
   queryKey: queryKeys.session(),
-  queryFn: getSessionFn,
+  queryFn: () => getSessionFn(),
   staleTime: 5 * 60 * 1000, // 5 min - auth data
 })
 
 export const orgsQueryOptions = queryOptions({
   queryKey: queryKeys.orgs(),
-  queryFn: getOrgsFn,
+  queryFn: () => getOrgsFn(),
   staleTime: 2 * 60 * 1000, // 2 min - rarely changes
 })
 
@@ -72,37 +72,37 @@ export const orgsQueryOptions = queryOptions({
 
 export const projectsQueryOptions = queryOptions({
   queryKey: queryKeys.projects(),
-  queryFn: listProjectsFn,
+  queryFn: () => listProjectsFn(),
   staleTime: 30 * 1000, // 30s - structure doesn't change often
 })
 
 export const archivedProjectsQueryOptions = queryOptions({
   queryKey: queryKeys.archivedProjects(),
-  queryFn: listArchivedProjectsFn,
+  queryFn: () => listArchivedProjectsFn(),
   staleTime: 30 * 1000, // 30s
 })
 
 export const archivedPackagesQueryOptions = queryOptions({
   queryKey: queryKeys.archivedPackages(),
-  queryFn: listArchivedPackagesFn,
+  queryFn: () => listArchivedPackagesFn(),
   staleTime: 30 * 1000, // 30s
 })
 
 export const orgMembersQueryOptions = queryOptions({
   queryKey: queryKeys.org.members(),
-  queryFn: getOrgMembersFn,
+  queryFn: () => getOrgMembersFn(),
   staleTime: 30 * 1000, // 30s
 })
 
 export const orgPendingInvitesQueryOptions = queryOptions({
   queryKey: queryKeys.org.pendingInvites(),
-  queryFn: getOrgPendingInvitesFn,
+  queryFn: () => getOrgPendingInvitesFn(),
   staleTime: 30 * 1000, // 30s
 })
 
 export const currentUserOrgRoleQueryOptions = queryOptions({
   queryKey: queryKeys.org.currentUserRole(),
-  queryFn: getCurrentUserOrgRoleFn,
+  queryFn: () => getCurrentUserOrgRoleFn(),
   staleTime: 30 * 1000, // 30s
 })
 

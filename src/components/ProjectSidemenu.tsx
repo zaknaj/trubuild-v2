@@ -1,7 +1,11 @@
 import { useState } from "react"
 import { Link } from "@tanstack/react-router"
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, Settings, Plus, Package as PackageIcon } from "lucide-react"
+import {
+  useSuspenseQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query"
+import { SettingsIcon, BoxIcon, PlusIcon, FolderOpenIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Drawer,
@@ -11,26 +15,63 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Sidemenu } from "@/components/Sidemenu"
 import { MemberDisplay } from "@/components/MemberDisplay"
+import { ProjectSettingsDialog } from "@/components/ProjectSettingsDialog"
 import { createPackageFn } from "@/fn"
 import {
   projectDetailQueryOptions,
   projectAccessQueryOptions,
   projectMembersQueryOptions,
 } from "@/lib/query-options"
-import type { Package, Member } from "@/lib/types"
+import type { Member, Package } from "@/lib/types"
+
+const STAGES = [
+  "PQQ Release",
+  "PQQ Submitted",
+  "PQQ Evaluation & Shortlisting",
+  "ITT Release",
+  "Tender Submitted",
+  "Tender Evaluation Completion",
+  "Contract Award",
+  "Contract Execution",
+] as const
+
+const RAG_STATUSES = [
+  { label: "On track", color: "bg-green-500" },
+  { label: "At risk", color: "bg-amber-500" },
+  { label: "Off track", color: "bg-red-500" },
+] as const
 
 export function ProjectSidemenu({ projectId }: { projectId: string }) {
-  const { data: projectData } = useSuspenseQuery(projectDetailQueryOptions(projectId))
-  const { data: accessData } = useSuspenseQuery(projectAccessQueryOptions(projectId))
-  const { data: members } = useSuspenseQuery(projectMembersQueryOptions(projectId))
+  const { data: projectData } = useSuspenseQuery(
+    projectDetailQueryOptions(projectId)
+  )
+  const { data: accessData } = useSuspenseQuery(
+    projectAccessQueryOptions(projectId)
+  )
+  const { data: members } = useSuspenseQuery(
+    projectMembersQueryOptions(projectId)
+  )
   const queryClient = useQueryClient()
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [packageName, setPackageName] = useState("")
+  const [stage, setStage] = useState<(typeof STAGES)[number]>(STAGES[0])
+  const [ragStatus, setRagStatus] = useState<(typeof RAG_STATUSES)[number]>(
+    RAG_STATUSES[0]
+  )
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsDefaultTab, setSettingsDefaultTab] = useState<
+    "general" | "members"
+  >("general")
 
   const { project, packages } = projectData
   const canCreatePackage = accessData.access === "full"
@@ -64,77 +105,134 @@ export function ProjectSidemenu({ projectId }: { projectId: string }) {
     createPackage.mutate(name)
   }
 
+  const openSettingsGeneral = () => {
+    setSettingsDefaultTab("general")
+    setSettingsOpen(true)
+  }
+
+  const openSettingsMembers = () => {
+    setSettingsDefaultTab("members")
+    setSettingsOpen(true)
+  }
+
   return (
     <>
-      <Sidemenu>
-        <div className="p-4 space-y-6">
-          {/* Back link */}
-          <Link
-            to="/all-projects"
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      <div className="w-85 border-r shrink-0 py-6 pl-9 overflow-auto">
+        <div className="flex items-center mb-4 group gap-1">
+          <div className="text-18 font-medium">{project.name}</div>
+          <Button
+            variant="ghost"
+            className="group-hover:opacity-100 opacity-0 text-black/30 hover:text-black"
+            onClick={openSettingsGeneral}
           >
-            <ArrowLeft className="size-4" />
-            All Projects
-          </Link>
-
-          {/* Project header */}
-          <div className="flex items-start justify-between gap-2">
-            <h2 className="text-lg font-semibold text-slate-900 leading-tight">
-              {project.name}
-            </h2>
-            <Link
-              to="/project/$id/settings"
-              params={{ id: projectId }}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1 -m-1"
-            >
-              <Settings className="size-4" />
-            </Link>
-          </div>
-
-          {/* Lead members */}
-          <MemberDisplay
-            members={leadMembers}
-            href={`/project/${projectId}/settings`}
-            label="Lead"
-          />
-
-          {/* Other members */}
-          <MemberDisplay
-            members={otherMembers}
-            href={`/project/${projectId}/settings`}
-            label="Members"
-          />
-
-          {/* Packages */}
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">
-              Packages
-            </p>
-            <div className="space-y-1">
-              {packages.map((pkg: Package) => (
-                <Link
-                  key={pkg.id}
-                  to="/package/$id"
-                  params={{ id: pkg.id }}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 -mx-2 text-sm hover:bg-slate-100 transition-colors"
-                >
-                  <PackageIcon className="size-4 text-muted-foreground" />
-                  <span className="truncate">{pkg.name}</span>
-                </Link>
-              ))}
-              {canCreatePackage && (
-                <button
-                  onClick={() => setDrawerOpen(true)}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 -mx-2 text-sm text-muted-foreground hover:text-foreground hover:bg-slate-100 transition-colors w-full"
-                >
-                  <Plus className="size-4" />
-                  <span>New package</span>
-                </button>
-              )}
-            </div>
-          </div>
+            <SettingsIcon size="16" />
+          </Button>
         </div>
-      </Sidemenu>
+
+        <div className="flex items-center h-9">
+          <div className="text-11 text-muted-foreground w-22">Project</div>
+          <Button variant="ghost" className="text-12 font-medium">
+            <FolderOpenIcon />
+            {project.name}
+          </Button>
+        </div>
+
+        <div className="flex items-center h-9">
+          <div className="text-11 text-muted-foreground w-22">RAG Status</div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="text-12 font-medium gap-2">
+                <span className={`size-1.5 rounded-full ${ragStatus.color}`} />
+                {ragStatus.label}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="right"
+              align="start"
+              className="w-fit text-12 font-medium"
+            >
+              {RAG_STATUSES.map((status) => (
+                <DropdownMenuItem
+                  key={status.label}
+                  onClick={() => setRagStatus(status)}
+                  className="gap-2"
+                >
+                  <span className={`size-1.5 rounded-full ${status.color}`} />
+                  {status.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="flex items-center h-9">
+          <div className="text-11 text-muted-foreground w-22">Stage</div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="text-12 font-medium">
+                {stage}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="right"
+              align="start"
+              className="w-fit text-12 font-medium"
+            >
+              {STAGES.map((s) => (
+                <DropdownMenuItem
+                  className="whitespace-nowrap"
+                  key={s}
+                  onClick={() => setStage(s)}
+                >
+                  {s}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="flex items-center h-9">
+          <div className="text-11 text-muted-foreground w-22">Project lead</div>
+          <MemberDisplay members={leadMembers} onClick={openSettingsMembers} />
+        </div>
+
+        <div className="flex items-center h-9">
+          <div className="text-11 text-muted-foreground w-22">Members</div>
+          <MemberDisplay members={otherMembers} onClick={openSettingsMembers} />
+        </div>
+
+        <div className="text-11 text-muted-foreground mt-10 mb-3">Packages</div>
+        <div className="flex flex-col items-baseline -ml-3 pr-8">
+          {canCreatePackage && (
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="text-12 text-green-700 font-medium flex gap-2 h-8 items-center hover:bg-accent w-full rounded px-3"
+            >
+              <PlusIcon size="16" />
+              New package
+            </button>
+          )}
+          {packages.map((pkg: Package) => (
+            <Link
+              key={pkg.id}
+              to="/package/$id"
+              params={{ id: pkg.id }}
+              className="text-12 font-medium flex gap-2 h-8 items-center hover:bg-accent w-full rounded px-3"
+            >
+              <BoxIcon size="16" />
+              {pkg.name}
+            </Link>
+          ))}
+        </div>
+
+        <div className="text-11 text-muted-foreground mt-10 mb-4">Activity</div>
+        <div className="flex flex-col gap-3 pr-8">
+          <div className="w-full h-5 bg-black/3 rounded"></div>
+          <div className="w-full h-5 bg-black/3 rounded"></div>
+          <div className="w-full h-5 bg-black/3 rounded"></div>
+          <div className="w-full h-5 bg-black/3 rounded"></div>
+        </div>
+      </div>
 
       <Drawer open={drawerOpen} direction="right" onClose={closeDrawer}>
         <DrawerContent className="min-w-[500px]">
@@ -179,7 +277,13 @@ export function ProjectSidemenu({ projectId }: { projectId: string }) {
           </form>
         </DrawerContent>
       </Drawer>
+
+      <ProjectSettingsDialog
+        projectId={projectId}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        defaultTab={settingsDefaultTab}
+      />
     </>
   )
 }
-

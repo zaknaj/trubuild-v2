@@ -10,9 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CreateOrgRouteImport } from './routes/create-org'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
-import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppTestRouteRouteImport } from './routes/_app/test-route'
 import { Route as AppAllProjectsRouteImport } from './routes/_app/all-projects'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
@@ -20,15 +21,18 @@ import { Route as AppProjectIdRouteImport } from './routes/_app/project.$id'
 import { Route as AppPackageIdRouteImport } from './routes/_app/package.$id'
 import { Route as AppProjectIdIndexRouteImport } from './routes/_app/project.$id.index'
 import { Route as AppPackageIdIndexRouteImport } from './routes/_app/package.$id.index'
-import { Route as AppProjectIdSettingsRouteImport } from './routes/_app/project.$id.settings'
 import { Route as AppPackageIdTechRouteImport } from './routes/_app/package.$id.tech'
-import { Route as AppPackageIdSettingsRouteImport } from './routes/_app/package.$id.settings'
 import { Route as AppPackageIdCommIndexRouteImport } from './routes/_app/package.$id.comm.index'
 import { Route as AppPackageIdCommAssetIdRouteImport } from './routes/_app/package.$id.comm.$assetId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreateOrgRoute = CreateOrgRouteImport.update({
+  id: '/create-org',
+  path: '/create-org',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -40,9 +44,9 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const AppTestRouteRoute = AppTestRouteRouteImport.update({
+  id: '/test-route',
+  path: '/test-route',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAllProjectsRoute = AppAllProjectsRouteImport.update({
@@ -80,19 +84,9 @@ const AppPackageIdIndexRoute = AppPackageIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppPackageIdRoute,
 } as any)
-const AppProjectIdSettingsRoute = AppProjectIdSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppProjectIdRoute,
-} as any)
 const AppPackageIdTechRoute = AppPackageIdTechRouteImport.update({
   id: '/tech',
   path: '/tech',
-  getParentRoute: () => AppPackageIdRoute,
-} as any)
-const AppPackageIdSettingsRoute = AppPackageIdSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
   getParentRoute: () => AppPackageIdRoute,
 } as any)
 const AppPackageIdCommIndexRoute = AppPackageIdCommIndexRouteImport.update({
@@ -107,32 +101,30 @@ const AppPackageIdCommAssetIdRoute = AppPackageIdCommAssetIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/create-org': typeof CreateOrgRoute
   '/login': typeof LoginRoute
   '/admin': typeof AppAdminRoute
   '/all-projects': typeof AppAllProjectsRoute
-  '/settings': typeof AppSettingsRoute
+  '/test-route': typeof AppTestRouteRoute
   '/': typeof AppIndexRoute
   '/package/$id': typeof AppPackageIdRouteWithChildren
   '/project/$id': typeof AppProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/package/$id/settings': typeof AppPackageIdSettingsRoute
   '/package/$id/tech': typeof AppPackageIdTechRoute
-  '/project/$id/settings': typeof AppProjectIdSettingsRoute
   '/package/$id/': typeof AppPackageIdIndexRoute
   '/project/$id/': typeof AppProjectIdIndexRoute
   '/package/$id/comm/$assetId': typeof AppPackageIdCommAssetIdRoute
   '/package/$id/comm': typeof AppPackageIdCommIndexRoute
 }
 export interface FileRoutesByTo {
+  '/create-org': typeof CreateOrgRoute
   '/login': typeof LoginRoute
   '/admin': typeof AppAdminRoute
   '/all-projects': typeof AppAllProjectsRoute
-  '/settings': typeof AppSettingsRoute
+  '/test-route': typeof AppTestRouteRoute
   '/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/package/$id/settings': typeof AppPackageIdSettingsRoute
   '/package/$id/tech': typeof AppPackageIdTechRoute
-  '/project/$id/settings': typeof AppProjectIdSettingsRoute
   '/package/$id': typeof AppPackageIdIndexRoute
   '/project/$id': typeof AppProjectIdIndexRoute
   '/package/$id/comm/$assetId': typeof AppPackageIdCommAssetIdRoute
@@ -141,17 +133,16 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/create-org': typeof CreateOrgRoute
   '/login': typeof LoginRoute
   '/_app/admin': typeof AppAdminRoute
   '/_app/all-projects': typeof AppAllProjectsRoute
-  '/_app/settings': typeof AppSettingsRoute
+  '/_app/test-route': typeof AppTestRouteRoute
   '/_app/': typeof AppIndexRoute
   '/_app/package/$id': typeof AppPackageIdRouteWithChildren
   '/_app/project/$id': typeof AppProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/_app/package/$id/settings': typeof AppPackageIdSettingsRoute
   '/_app/package/$id/tech': typeof AppPackageIdTechRoute
-  '/_app/project/$id/settings': typeof AppProjectIdSettingsRoute
   '/_app/package/$id/': typeof AppPackageIdIndexRoute
   '/_app/project/$id/': typeof AppProjectIdIndexRoute
   '/_app/package/$id/comm/$assetId': typeof AppPackageIdCommAssetIdRoute
@@ -160,32 +151,30 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/create-org'
     | '/login'
     | '/admin'
     | '/all-projects'
-    | '/settings'
+    | '/test-route'
     | '/'
     | '/package/$id'
     | '/project/$id'
     | '/api/auth/$'
-    | '/package/$id/settings'
     | '/package/$id/tech'
-    | '/project/$id/settings'
     | '/package/$id/'
     | '/project/$id/'
     | '/package/$id/comm/$assetId'
     | '/package/$id/comm'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/create-org'
     | '/login'
     | '/admin'
     | '/all-projects'
-    | '/settings'
+    | '/test-route'
     | '/'
     | '/api/auth/$'
-    | '/package/$id/settings'
     | '/package/$id/tech'
-    | '/project/$id/settings'
     | '/package/$id'
     | '/project/$id'
     | '/package/$id/comm/$assetId'
@@ -193,17 +182,16 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/create-org'
     | '/login'
     | '/_app/admin'
     | '/_app/all-projects'
-    | '/_app/settings'
+    | '/_app/test-route'
     | '/_app/'
     | '/_app/package/$id'
     | '/_app/project/$id'
     | '/api/auth/$'
-    | '/_app/package/$id/settings'
     | '/_app/package/$id/tech'
-    | '/_app/project/$id/settings'
     | '/_app/package/$id/'
     | '/_app/project/$id/'
     | '/_app/package/$id/comm/$assetId'
@@ -212,6 +200,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  CreateOrgRoute: typeof CreateOrgRoute
   LoginRoute: typeof LoginRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -223,6 +212,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create-org': {
+      id: '/create-org'
+      path: '/create-org'
+      fullPath: '/create-org'
+      preLoaderRoute: typeof CreateOrgRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -239,11 +235,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
+    '/_app/test-route': {
+      id: '/_app/test-route'
+      path: '/test-route'
+      fullPath: '/test-route'
+      preLoaderRoute: typeof AppTestRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/all-projects': {
@@ -295,25 +291,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPackageIdIndexRouteImport
       parentRoute: typeof AppPackageIdRoute
     }
-    '/_app/project/$id/settings': {
-      id: '/_app/project/$id/settings'
-      path: '/settings'
-      fullPath: '/project/$id/settings'
-      preLoaderRoute: typeof AppProjectIdSettingsRouteImport
-      parentRoute: typeof AppProjectIdRoute
-    }
     '/_app/package/$id/tech': {
       id: '/_app/package/$id/tech'
       path: '/tech'
       fullPath: '/package/$id/tech'
       preLoaderRoute: typeof AppPackageIdTechRouteImport
-      parentRoute: typeof AppPackageIdRoute
-    }
-    '/_app/package/$id/settings': {
-      id: '/_app/package/$id/settings'
-      path: '/settings'
-      fullPath: '/package/$id/settings'
-      preLoaderRoute: typeof AppPackageIdSettingsRouteImport
       parentRoute: typeof AppPackageIdRoute
     }
     '/_app/package/$id/comm/': {
@@ -334,7 +316,6 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppPackageIdRouteChildren {
-  AppPackageIdSettingsRoute: typeof AppPackageIdSettingsRoute
   AppPackageIdTechRoute: typeof AppPackageIdTechRoute
   AppPackageIdIndexRoute: typeof AppPackageIdIndexRoute
   AppPackageIdCommAssetIdRoute: typeof AppPackageIdCommAssetIdRoute
@@ -342,7 +323,6 @@ interface AppPackageIdRouteChildren {
 }
 
 const AppPackageIdRouteChildren: AppPackageIdRouteChildren = {
-  AppPackageIdSettingsRoute: AppPackageIdSettingsRoute,
   AppPackageIdTechRoute: AppPackageIdTechRoute,
   AppPackageIdIndexRoute: AppPackageIdIndexRoute,
   AppPackageIdCommAssetIdRoute: AppPackageIdCommAssetIdRoute,
@@ -354,12 +334,10 @@ const AppPackageIdRouteWithChildren = AppPackageIdRoute._addFileChildren(
 )
 
 interface AppProjectIdRouteChildren {
-  AppProjectIdSettingsRoute: typeof AppProjectIdSettingsRoute
   AppProjectIdIndexRoute: typeof AppProjectIdIndexRoute
 }
 
 const AppProjectIdRouteChildren: AppProjectIdRouteChildren = {
-  AppProjectIdSettingsRoute: AppProjectIdSettingsRoute,
   AppProjectIdIndexRoute: AppProjectIdIndexRoute,
 }
 
@@ -370,7 +348,7 @@ const AppProjectIdRouteWithChildren = AppProjectIdRoute._addFileChildren(
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppAllProjectsRoute: typeof AppAllProjectsRoute
-  AppSettingsRoute: typeof AppSettingsRoute
+  AppTestRouteRoute: typeof AppTestRouteRoute
   AppIndexRoute: typeof AppIndexRoute
   AppPackageIdRoute: typeof AppPackageIdRouteWithChildren
   AppProjectIdRoute: typeof AppProjectIdRouteWithChildren
@@ -379,7 +357,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppAllProjectsRoute: AppAllProjectsRoute,
-  AppSettingsRoute: AppSettingsRoute,
+  AppTestRouteRoute: AppTestRouteRoute,
   AppIndexRoute: AppIndexRoute,
   AppPackageIdRoute: AppPackageIdRouteWithChildren,
   AppProjectIdRoute: AppProjectIdRouteWithChildren,
@@ -389,6 +367,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  CreateOrgRoute: CreateOrgRoute,
   LoginRoute: LoginRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

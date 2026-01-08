@@ -16,13 +16,20 @@ export const Route = createFileRoute("/_app")({
       authBootstrapQueryOptions
     )
 
-    // Prime the individual caches so components using these queryOptions
-    // don't immediately refetch.
-    queryClient.setQueryData(sessionQueryOptions.queryKey, session)
-    queryClient.setQueryData(orgsQueryOptions.queryKey, orgs)
+    // Prime the individual caches only if they don't already have data.
+    // This prevents re-renders from link hover preloading.
+    if (!queryClient.getQueryData(sessionQueryOptions.queryKey)) {
+      queryClient.setQueryData(sessionQueryOptions.queryKey, session)
+    }
+    if (!queryClient.getQueryData(orgsQueryOptions.queryKey)) {
+      queryClient.setQueryData(orgsQueryOptions.queryKey, orgs)
+    }
 
-    if (!session || orgs.length === 0) {
+    if (!session) {
       throw redirect({ to: "/login" })
+    }
+    if (orgs.length === 0) {
+      throw redirect({ to: "/create-org" })
     }
   },
   component: RouteComponent,

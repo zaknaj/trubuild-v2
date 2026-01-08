@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { authClient } from "@/auth/auth-client"
 import {
@@ -6,18 +6,18 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query"
 import { sessionQueryOptions } from "@/lib/query-options"
 import { SettingsIcon, LogOutIcon, ShieldIcon, UserXIcon } from "lucide-react"
 import { Link } from "@tanstack/react-router"
+import { SettingsDialog } from "@/components/SettingsDialog"
 
 export const AccountNavButton = () => {
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const { data: session } = useSuspenseQuery(sessionQueryOptions)
   const user = session?.user
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const isSuperuser = user?.email?.endsWith("@trubuild.io") ?? false
@@ -36,62 +36,62 @@ export const AccountNavButton = () => {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="navGhost">
-          {user?.image ? (
-            <img
-              src={user.image}
-              alt=""
-              className="size-6 rounded-full object-cover"
-            />
-          ) : (
-            <div className="size-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-medium uppercase">
-              {user?.name?.charAt(0) || user?.email?.charAt(0)}
-            </div>
+    <>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="navGhost" className="flex items-center gap-2">
+            {user?.image ? (
+              <img
+                src={user.image}
+                alt=""
+                className="size-6 rounded-full object-cover"
+              />
+            ) : (
+              <div className="size-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-medium uppercase">
+                {user?.name?.charAt(0) || user?.email?.charAt(0)}
+              </div>
+            )}
+            {user?.name ? (
+              <span className="font-medium capitalize">{user.name}</span>
+            ) : (
+              <span className="text-sm">{user?.email}</span>
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-40 w-fit text-13">
+          <DropdownMenuLabel className="flex flex-col gap-0.5 whitespace-nowrap">
+            {user?.email}
+            {isImpersonating && (
+              <span className="text-xs text-amber-600 font-normal">
+                Impersonating
+              </span>
+            )}
+          </DropdownMenuLabel>
+          {isSuperuser && (
+            <DropdownMenuItem asChild>
+              <Link to="/admin">
+                <ShieldIcon size="10" />
+                Admin
+              </Link>
+            </DropdownMenuItem>
           )}
-          {user?.name ? (
-            <span className="font-medium capitalize">{user.name}</span>
-          ) : (
-            <span className="text-sm">{user?.email}</span>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-40 w-fit">
-        <DropdownMenuLabel className="flex flex-col gap-0.5 whitespace-nowrap">
-          {user?.email}
-          {isImpersonating && (
-            <span className="text-xs text-amber-600 font-normal">
-              Impersonating
-            </span>
-          )}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {isSuperuser && (
-          <DropdownMenuItem asChild>
-            <Link to="/admin">
-              <ShieldIcon />
-              Admin
-            </Link>
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem asChild>
-          <Link to="/settings">
-            <SettingsIcon />
+          <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+            <SettingsIcon size="10" />
             Settings
-          </Link>
-        </DropdownMenuItem>
-        {isImpersonating && (
-          <DropdownMenuItem onSelect={handleStopImpersonating}>
-            <UserXIcon />
-            Stop Impersonating
           </DropdownMenuItem>
-        )}
-        <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
-          <LogOutIcon />
-          Log out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {isImpersonating && (
+            <DropdownMenuItem onSelect={handleStopImpersonating}>
+              <UserXIcon size="10" />
+              Stop Impersonating
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
+            <LogOutIcon size="10" />
+            Log out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   )
 }

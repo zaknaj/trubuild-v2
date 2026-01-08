@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, Link } from "@tanstack/react-router"
 import { setActiveOrgFn } from "@/fn"
 import {
   DropdownMenu,
@@ -15,15 +15,14 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 import { orgsQueryOptions, sessionQueryOptions } from "@/lib/query-options"
-import { PlusIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Spinner } from "@/components/ui/spinner"
 import { Button } from "./ui/button"
-import { CreateOrgModal } from "./CreateOrgModal"
+import { SettingsDialog } from "@/components/SettingsDialog"
 
 export const OrgNavButton = () => {
   const [open, setOpen] = useState(false)
-  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const { data: orgs } = useSuspenseQuery(orgsQueryOptions)
   const { data: session } = useSuspenseQuery(sessionQueryOptions)
   const activeOrgId = session?.session?.activeOrganizationId
@@ -60,14 +59,14 @@ export const OrgNavButton = () => {
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="navGhost" className="-ml-2">
-            <div className="size-6 rounded-md bg-white/20"></div>
+          <Button variant="navGhost" className="-ml-2 flex items-center gap-2">
+            <div className="size-6 rounded-full bg-white/20"></div>
             <span className="font-medium first-letter:uppercase">
               {activeOrganization?.name}
             </span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="min-w-56 w-fit">
+        <DropdownMenuContent className="min-w-56 w-fit text-13">
           <DropdownMenuLabel>My organizations</DropdownMenuLabel>
           {orgs.map((org) => {
             const isCurrentOrg = org.id === activeOrgId
@@ -78,8 +77,8 @@ export const OrgNavButton = () => {
               <DropdownMenuItem
                 key={org.id}
                 className={cn(
-                  "whitespace-nowrap h-9",
-                  isDisabled && "pointer-events-none"
+                  "whitespace-nowrap",
+                  isDisabled && "pointer-events-none opacity-50"
                 )}
                 onSelect={(e) => {
                   e.preventDefault()
@@ -91,32 +90,29 @@ export const OrgNavButton = () => {
                 {isSwitchingToThis ? (
                   <Spinner className="size-6 stroke-1 opacity-50 " />
                 ) : (
-                  <div
-                    className={cn(
-                      "size-6 rounded-full bg-black/10",
-                      isCurrentOrg && "ring-primary  ring"
-                    )}
-                  />
+                  <div className={cn("size-6 rounded-full bg-black/10")} />
                 )}
                 {org.name}
               </DropdownMenuItem>
             )
           })}
           <DropdownMenuSeparator />
+
           <DropdownMenuItem
             className={cn(isSwitching && "pointer-events-none opacity-50")}
-            onSelect={(e) => {
-              e.preventDefault()
-              setOpen(false)
-              setCreateModalOpen(true)
-            }}
+            asChild
           >
-            <PlusIcon className="size-3 mx-1" />
-            <div>Create an organization</div>
+            <Link to="/create-org">Create an organization</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className={cn(isSwitching && "pointer-events-none opacity-50")}
+            onSelect={() => setSettingsOpen(true)}
+          >
+            Settings
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <CreateOrgModal open={createModalOpen} onOpenChange={setCreateModalOpen} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </>
   )
 }

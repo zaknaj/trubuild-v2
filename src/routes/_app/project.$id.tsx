@@ -19,9 +19,9 @@ function RouteComponent() {
   const { id } = Route.useParams()
 
   return (
-    <>
+    <div className="flex h-full w-full ring">
       <ProjectSidemenu projectId={id} />
       <Outlet />
-    </>
+    </div>
   )
 }

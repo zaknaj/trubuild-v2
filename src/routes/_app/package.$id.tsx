@@ -17,9 +17,9 @@ function RouteComponent() {
   const { id } = Route.useParams()
 
   return (
-    <>
+    <div className="flex h-full w-full">
       <PackageSidemenu packageId={id} />
       <Outlet />
-    </>
+    </div>
   )
 }

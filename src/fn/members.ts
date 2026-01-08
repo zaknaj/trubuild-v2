@@ -103,6 +103,72 @@ export const inviteMemberFn = createServerFn({ method: "POST" })
     return { success: true, email: data.email, role: data.role }
   })
 
+export const removeOrgMemberFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      userId: z.string(),
+    })
+  )
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    await requireOrgOwner(ctx)
+
+    // Prevent removing yourself
+    if (data.userId === ctx.userId) {
+      throw new Error("You cannot remove yourself from the organization.")
+    }
+
+    // Check if this is the last owner
+    const owners = await db
+      .select({ userId: member.userId })
+      .from(member)
+      .where(
+        and(
+          eq(member.organizationId, ctx.activeOrgId),
+          eq(member.role, "owner")
+        )
+      )
+
+    const memberToRemove = owners.find((o) => o.userId === data.userId)
+    if (memberToRemove && owners.length === 1) {
+      throw new Error("Cannot remove the last owner from the organization.")
+    }
+
+    await db
+      .delete(member)
+      .where(
+        and(
+          eq(member.userId, data.userId),
+          eq(member.organizationId, ctx.activeOrgId)
+        )
+      )
+
+    return { success: true }
+  })
+
+export const cancelOrgInvitationFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      invitationId: z.string(),
+    })
+  )
+  .handler(async ({ data }) => {
+    const ctx = await getAuthContext()
+    await requireOrgOwner(ctx)
+
+    await db
+      .delete(invitation)
+      .where(
+        and(
+          eq(invitation.id, data.invitationId),
+          eq(invitation.organizationId, ctx.activeOrgId),
+          eq(invitation.status, "pending")
+        )
+      )
+
+    return { success: true }
+  })
+
 // ============================================================================
 // Project Members & Invitations
 // ============================================================================

@@ -42,18 +42,27 @@ export const Route = createFileRoute("/_app/all-projects")({
 function RouteComponent() {
   const { data: projects } = useSuspenseQuery(projectsQueryOptions)
   const { data: userRole } = useSuspenseQuery(currentUserOrgRoleQueryOptions)
-  const { data: archivedProjects } = useSuspenseQuery(archivedProjectsQueryOptions)
-  const { data: archivedPackages } = useSuspenseQuery(archivedPackagesQueryOptions)
+  const { data: archivedProjects } = useSuspenseQuery(
+    archivedProjectsQueryOptions
+  )
+  const { data: archivedPackages } = useSuspenseQuery(
+    archivedPackagesQueryOptions
+  )
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
   const [projectName, setProjectName] = useState("")
-  const [restoringProjectId, setRestoringProjectId] = useState<string | null>(null)
-  const [restoringPackageId, setRestoringPackageId] = useState<string | null>(null)
+  const [restoringProjectId, setRestoringProjectId] = useState<string | null>(
+    null
+  )
+  const [restoringPackageId, setRestoringPackageId] = useState<string | null>(
+    null
+  )
 
   const canCreateProject =
     userRole.role === "owner" || userRole.role === "admin"
 
-  const hasArchivedItems = archivedProjects.length > 0 || archivedPackages.length > 0
+  const hasArchivedItems =
+    archivedProjects.length > 0 || archivedPackages.length > 0
 
   const createProject = useMutation({
     mutationFn: (name: string) => createProjectFn({ data: { name } }),
@@ -64,30 +73,46 @@ function RouteComponent() {
   })
 
   const restoreProject = useMutation({
-    mutationFn: (projectId: string) => restoreProjectFn({ data: { projectId } }),
+    mutationFn: (projectId: string) =>
+      restoreProjectFn({ data: { projectId } }),
     onSuccess: () => {
       toast.success("Project restored")
       queryClient.invalidateQueries({ queryKey: projectsQueryOptions.queryKey })
-      queryClient.invalidateQueries({ queryKey: archivedProjectsQueryOptions.queryKey })
+      queryClient.invalidateQueries({
+        queryKey: archivedProjectsQueryOptions.queryKey,
+      })
       setRestoringProjectId(null)
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to restore project")
+      toast.error(
+        error instanceof Error ? error.message : "Failed to restore project"
+      )
       setRestoringProjectId(null)
     },
   })
 
   const restorePackage = useMutation({
-    mutationFn: ({ packageId, projectId }: { packageId: string; projectId: string }) =>
-      restorePackageFn({ data: { packageId } }),
+    mutationFn: ({
+      packageId,
+      projectId,
+    }: {
+      packageId: string
+      projectId: string
+    }) => restorePackageFn({ data: { packageId } }),
     onSuccess: (_, { projectId }) => {
       toast.success("Package restored")
-      queryClient.invalidateQueries({ queryKey: archivedPackagesQueryOptions.queryKey })
-      queryClient.invalidateQueries({ queryKey: queryKeys.project.detail(projectId) })
+      queryClient.invalidateQueries({
+        queryKey: archivedPackagesQueryOptions.queryKey,
+      })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.project.detail(projectId),
+      })
       setRestoringPackageId(null)
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to restore package")
+      toast.error(
+        error instanceof Error ? error.message : "Failed to restore package"
+      )
       setRestoringPackageId(null)
     },
   })
@@ -202,7 +227,12 @@ function RouteComponent() {
                               {project.name}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Archived {project.archivedAt ? new Date(project.archivedAt).toLocaleDateString() : ""}
+                              Archived{" "}
+                              {project.archivedAt
+                                ? new Date(
+                                    project.archivedAt
+                                  ).toLocaleDateString()
+                                : ""}
                             </p>
                           </div>
                           <Button
@@ -244,13 +274,18 @@ function RouteComponent() {
                               {pkg.name}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              From project: {pkg.projectName} · Archived {pkg.archivedAt ? new Date(pkg.archivedAt).toLocaleDateString() : ""}
+                              From project: {pkg.projectName} · Archived{" "}
+                              {pkg.archivedAt
+                                ? new Date(pkg.archivedAt).toLocaleDateString()
+                                : ""}
                             </p>
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleRestorePackage(pkg.id, pkg.projectId)}
+                            onClick={() =>
+                              handleRestorePackage(pkg.id, pkg.projectId)
+                            }
                             disabled={restoringPackageId === pkg.id}
                             className="gap-1.5"
                           >
