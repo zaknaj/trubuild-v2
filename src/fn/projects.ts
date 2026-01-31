@@ -115,15 +115,23 @@ export const listProjectsFn = createServerFn().handler(async () => {
       id: pkg.id,
       name: pkg.name,
       projectId: pkg.projectId,
+      awardedContractorId: pkg.awardedContractorId,
     })
     .from(pkg)
     .where(and(inArray(pkg.projectId, projectIds), isNull(pkg.archivedAt)))
     .orderBy(desc(pkg.createdAt))
 
-  const packagesMap = new Map<string, { id: string; name: string }[]>()
+  const packagesMap = new Map<
+    string,
+    { id: string; name: string; awardedContractorId: string | null }[]
+  >()
   for (const p of allPackages) {
     const existing = packagesMap.get(p.projectId) || []
-    existing.push({ id: p.id, name: p.name })
+    existing.push({
+      id: p.id,
+      name: p.name,
+      awardedContractorId: p.awardedContractorId,
+    })
     packagesMap.set(p.projectId, existing)
   }
 
@@ -158,10 +166,14 @@ export const listProjectsFn = createServerFn().handler(async () => {
   // Combine data
   return baseProjects.map((project) => {
     const projectPackages = packagesMap.get(project.id) ?? []
+    const awardedCount = projectPackages.filter(
+      (p) => p.awardedContractorId !== null
+    ).length
     return {
       ...project,
-      packages: projectPackages,
+      packages: projectPackages.map(({ id, name }) => ({ id, name })),
       packageCount: projectPackages.length,
+      awardedPackageCount: awardedCount,
       teamMembers: teamMembersMap.get(project.id) ?? [],
     }
   })
@@ -209,6 +221,10 @@ export const getProjectWithPackagesFn = createServerFn()
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
     const accessInfo = await requireProjectAccess(ctx, data.projectId)
+
+    // Check if user has commercial access at project level
+    const canViewCommercial =
+      accessInfo.access === "full" || accessInfo.access === "commercial"
 
     const [project] = await db
       .select({
@@ -296,22 +312,24 @@ export const getProjectWithPackagesFn = createServerFn()
       assetCountMap = new Map(assetCounts.map((a) => [a.packageId, a.count]))
     }
 
-    // Get awarded contractor names
-    const awardedContractorIds = packages
-      .map((p) => p.awardedContractorId)
-      .filter((id): id is string => id !== null)
-
+    // Get awarded contractor names only if user has commercial access
     let contractorNameMap = new Map<string, string>()
-    if (awardedContractorIds.length > 0) {
-      const contractors = await db
-        .select({
-          id: packageContractor.id,
-          name: packageContractor.name,
-        })
-        .from(packageContractor)
-        .where(inArray(packageContractor.id, awardedContractorIds))
+    if (canViewCommercial) {
+      const awardedContractorIds = packages
+        .map((p) => p.awardedContractorId)
+        .filter((id): id is string => id !== null)
 
-      contractorNameMap = new Map(contractors.map((c) => [c.id, c.name]))
+      if (awardedContractorIds.length > 0) {
+        const contractors = await db
+          .select({
+            id: packageContractor.id,
+            name: packageContractor.name,
+          })
+          .from(packageContractor)
+          .where(inArray(packageContractor.id, awardedContractorIds))
+
+        contractorNameMap = new Map(contractors.map((c) => [c.id, c.name]))
+      }
     }
 
     return {
@@ -319,9 +337,12 @@ export const getProjectWithPackagesFn = createServerFn()
       packages: packages.map((p) => ({
         ...p,
         assetCount: assetCountMap.get(p.id) ?? 0,
-        awardedContractorName: p.awardedContractorId
-          ? (contractorNameMap.get(p.awardedContractorId) ?? null)
-          : null,
+        // Only return awarded contractor info if user has commercial access
+        awardedContractorId: canViewCommercial ? p.awardedContractorId : null,
+        awardedContractorName:
+          canViewCommercial && p.awardedContractorId
+            ? (contractorNameMap.get(p.awardedContractorId) ?? null)
+            : null,
       })),
     }
   })

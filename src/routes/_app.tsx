@@ -1,9 +1,15 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useLocation,
+} from "@tanstack/react-router"
 import { Sidebar } from "@/components/Sidebar"
 import { Chat } from "@/components/Chat"
-import { Suspense } from "react"
+import { Suspense, useEffect, useRef } from "react"
 import { Spinner } from "@/components/ui/spinner"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
+import useStore from "@/lib/store"
 import {
   authBootstrapQueryOptions,
   orgsQueryOptions,
@@ -35,20 +41,41 @@ export const Route = createFileRoute("/_app")({
 })
 
 function RouteComponent() {
-  // const { data: session } = useSuspenseQuery(sessionQueryOptions)
-  // const { data: orgs } = useSuspenseQuery(orgsQueryOptions)
-  // const queryClient = useQueryClient()
-  // const activeOrgId = session?.session?.activeOrganizationId
+  const location = useLocation()
+  const setNavbarOpen = useStore((s) => s.setNavbarOpen)
+  const prevPathRef = useRef<string | null>(null)
 
-  // useEffect(() => {
-  //   if (orgs.length > 0 && !activeOrgId) {
-  //     setActiveOrgFn({ data: { organizationId: orgs[0].id } }).then(() => {
-  //       queryClient.invalidateQueries({
-  //         queryKey: sessionQueryOptions.queryKey,
-  //       })
-  //     })
-  //   }
-  // }, [orgs, activeOrgId, queryClient])
+  // Auto-collapse/expand main sidebar when navigating between route types
+  useEffect(() => {
+    const pathname = location.pathname
+    const prevPath = prevPathRef.current
+    prevPathRef.current = pathname
+
+    // Skip initial render - Sidebar handles its own initial state
+    if (prevPath === null) return
+
+    const isOnProjectOrPackage =
+      pathname.startsWith("/project/") || pathname.startsWith("/package/")
+    const wasOnProjectOrPackage =
+      prevPath.startsWith("/project/") || prevPath.startsWith("/package/")
+    const isOnTopLevel =
+      pathname === "/" ||
+      pathname === "/all-projects" ||
+      pathname === "/vendor-db"
+    const wasOnTopLevel =
+      prevPath === "/" ||
+      prevPath === "/all-projects" ||
+      prevPath === "/vendor-db"
+
+    // Collapse when entering project/package from top-level
+    if (isOnProjectOrPackage && wasOnTopLevel) {
+      setNavbarOpen(false)
+    }
+    // Expand when returning to top-level from project/package
+    else if (isOnTopLevel && wasOnProjectOrPackage) {
+      setNavbarOpen(true)
+    }
+  }, [location.pathname, setNavbarOpen])
 
   return (
     <div className="w-screen overflow-hidden h-screen text-sm main-gradient flex  p-4">

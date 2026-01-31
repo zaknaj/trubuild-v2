@@ -27,7 +27,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
-import { Clock, X, Loader2, Archive } from "lucide-react"
+import { Archive } from "lucide-react"
+import { MemberAvatar } from "@/components/ui/member-avatar"
+import { MemberListItem } from "@/components/ui/member-list-item"
 import {
   useSuspenseQuery,
   useQuery,
@@ -437,86 +439,28 @@ export function ProjectSettingsDialog({
                     ) : (
                       <>
                         {activeMembers.map((m: Member) => (
-                          <div
+                          <MemberListItem
                             key={m.id}
-                            className="flex items-center gap-2 px-3 py-2"
-                          >
-                            {m.userImage ? (
-                              <img
-                                src={m.userImage}
-                                alt=""
-                                className="size-7 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="size-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium uppercase text-muted-foreground">
-                                {m.userName?.charAt(0) || m.email.charAt(0)}
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate text-xs">
-                                {m.userName || m.email}
-                              </p>
-                              {m.userName && (
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {m.email}
-                                </p>
-                              )}
-                            </div>
-                            <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
-                              {m.role.replace("_", " ")}
-                            </span>
-                            {canInvite && (
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => handleRemove(m.email)}
-                                disabled={removingEmail === m.email}
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                {removingEmail === m.email ? (
-                                  <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                  <X className="size-4" />
-                                )}
-                              </Button>
-                            )}
-                          </div>
+                            name={m.userName}
+                            email={m.email}
+                            image={m.userImage}
+                            role={m.role}
+                            showRemoveButton={canInvite}
+                            isRemoving={removingEmail === m.email}
+                            onRemove={() => handleRemove(m.email)}
+                          />
                         ))}
                         {pendingMembers.map((m: Member) => (
-                          <div
+                          <MemberListItem
                             key={m.id}
-                            className="flex items-center gap-2 px-3 py-2 bg-amber-50/50"
-                          >
-                            <div className="size-7 rounded-full bg-amber-100 flex items-center justify-center">
-                              <Clock className="size-3.5 text-amber-600" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate text-xs">
-                                {m.email}
-                              </p>
-                              <p className="text-xs text-amber-600">
-                                Pending signup
-                              </p>
-                            </div>
-                            <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
-                              {m.role.replace("_", " ")}
-                            </span>
-                            {canInvite && (
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => handleRemove(m.email)}
-                                disabled={removingEmail === m.email}
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                {removingEmail === m.email ? (
-                                  <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                  <X className="size-4" />
-                                )}
-                              </Button>
-                            )}
-                          </div>
+                            name={m.userName}
+                            email={m.email}
+                            pending
+                            role={m.role}
+                            showRemoveButton={canInvite}
+                            isRemoving={removingEmail === m.email}
+                            onRemove={() => handleRemove(m.email)}
+                          />
                         ))}
                       </>
                     )}
@@ -538,17 +482,11 @@ export function ProjectSettingsDialog({
                             key={m.id}
                             className="flex items-center gap-2 w-full px-3 py-2 text-sm"
                           >
-                            {m.userImage ? (
-                              <img
-                                src={m.userImage}
-                                alt=""
-                                className="size-7 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="size-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium uppercase text-muted-foreground">
-                                {m.userName?.charAt(0) || m.email.charAt(0)}
-                              </div>
-                            )}
+                            <MemberAvatar
+                              name={m.userName}
+                              email={m.email}
+                              image={m.userImage}
+                            />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium truncate text-xs">
                                 {m.userName || m.email}

@@ -72,17 +72,6 @@ export async function requireOrgOwner(ctx: AuthContext) {
 }
 
 /**
- * Require superuser/admin (trubuild.io email) - for system admin operations
- */
-export async function requireSuperuser(ctx: AuthContext | AuthContextNoOrg) {
-  const isSuperuser = ctx.userEmail.endsWith("@trubuild.io")
-  if (!isSuperuser) {
-    throw new Error(ERRORS.NO_PERMISSION_ADMIN)
-  }
-  return { isSuperuser: true }
-}
-
-/**
  * Require owner or admin role - for creating projects
  */
 export async function requireCanCreateProject(ctx: AuthContext) {

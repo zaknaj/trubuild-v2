@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import {
   useSuspenseQuery,
   useMutation,
@@ -14,7 +14,6 @@ import {
   Award,
   Trophy,
   CheckCircle2,
-  ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -45,22 +44,14 @@ import {
   packageContractorsQueryOptions,
   packageCommercialSummaryQueryOptions,
   technicalEvaluationDetailQueryOptions,
-  packageMembersQueryOptions,
   packageAccessQueryOptions,
-  sessionQueryOptions,
   projectDetailQueryOptions,
 } from "@/lib/query-options"
-import {
-  awardPackageFn,
-  // updatePackageStageFn,
-  // updatePackageRagStatusFn,
-} from "@/fn"
+import { awardPackageFn } from "@/fn"
 import type { TechnicalEvaluationData } from "@/components/TechSetupWizard"
 import type { CommercialEvaluationData } from "@/lib/types"
 import { formatCurrency } from "@/lib/utils"
-// import { PROCUREMENT_STAGES, RAG_STATUSES } from "@/lib/constants"
-import { PackageSettingsDialog } from "@/components/PackageSettingsDialog"
-import { SidebarMembersSection } from "@/components/SidebarMembersSection"
+import { AIChatButton } from "@/components/AIChatButton"
 
 export const Route = createFileRoute("/_app/package/$id/")({
   loader: ({ params, context }) => {
@@ -75,7 +66,6 @@ export const Route = createFileRoute("/_app/package/$id/")({
     context.queryClient.prefetchQuery(
       packageCommercialSummaryQueryOptions(params.id)
     )
-    context.queryClient.prefetchQuery(packageMembersQueryOptions(params.id))
     context.queryClient.prefetchQuery(packageAccessQueryOptions(params.id))
   },
   component: RouteComponent,
@@ -114,7 +104,7 @@ function getTechnicalRankings(
       name: c.name,
       score: calculateWeightedScore(c.id, evalData),
     }))
-    .sort((a, b) => b.score - a.score) // Higher score = better
+    .sort((a, b) => b.score - a.score)
 }
 
 // Helper: Get ranked commercial contractors (aggregated across all assets)
@@ -125,7 +115,6 @@ function getCommercialRankings(
 ) {
   if (!commercialSummary || commercialSummary.assets.length === 0) return []
 
-  // Aggregate totals across all assets
   const contractorTotals: Record<string, { name: string; total: number }> = {}
 
   for (const asset of commercialSummary.assets) {
@@ -149,7 +138,7 @@ function getCommercialRankings(
       name: data.name,
       total: data.total,
     }))
-    .sort((a, b) => a.total - b.total) // Lower total = better
+    .sort((a, b) => a.total - b.total)
 }
 
 function RouteComponent() {
@@ -159,74 +148,42 @@ function RouteComponent() {
   const [awardSheetOpen, setAwardSheetOpen] = useState(false)
   const [selectedContractorId, setSelectedContractorId] = useState<string>("")
   const [awardComments, setAwardComments] = useState<string>("")
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsTab, setSettingsTab] = useState<
-    "general" | "members" | "activity"
-  >("general")
 
-  const { data: technicalEvals } = useSuspenseQuery(
-    technicalEvaluationsQueryOptions(id)
-  )
-  const { data: commercialEvalData } = useSuspenseQuery(
-    hasCommercialEvaluationQueryOptions(id)
-  )
   const { data: packageData } = useSuspenseQuery(packageDetailQueryOptions(id))
   const { data: contractors } = useSuspenseQuery(
     packageContractorsQueryOptions(id)
   )
-  const { data: commercialSummary } = useSuspenseQuery(
-    packageCommercialSummaryQueryOptions(id)
-  )
-  const { data: members } = useSuspenseQuery(packageMembersQueryOptions(id))
   const { data: accessData } = useSuspenseQuery(packageAccessQueryOptions(id))
-  const { data: session } = useSuspenseQuery(sessionQueryOptions)
 
-  const canEdit = accessData.access === "full"
   const canViewTechnical =
     accessData.access === "full" || accessData.access === "technical"
   const canViewCommercial =
     accessData.access === "full" || accessData.access === "commercial"
 
-  // const updateStage = useMutation({
-  //   mutationFn: (stage: string | null) =>
-  //     updatePackageStageFn({ data: { packageId: id, stage } }),
-  //   onSuccess: () => {
-  //     queryClient.invalidateQueries({
-  //       queryKey: packageDetailQueryOptions(id).queryKey,
-  //     })
-  //   },
-  //   onError: (error) => {
-  //     toast.error(
-  //       error instanceof Error ? error.message : "Failed to update stage"
-  //     )
-  //   },
-  // })
+  // Only fetch technical data if user has technical access
+  const { data: technicalEvals } = useQuery({
+    ...technicalEvaluationsQueryOptions(id),
+    enabled: canViewTechnical,
+  })
 
-  // const updateRagStatus = useMutation({
-  //   mutationFn: (ragStatus: string | null) =>
-  //     updatePackageRagStatusFn({ data: { packageId: id, ragStatus } }),
-  //   onSuccess: () => {
-  //     queryClient.invalidateQueries({
-  //       queryKey: packageDetailQueryOptions(id).queryKey,
-  //     })
-  //   },
-  //   onError: (error) => {
-  //     toast.error(
-  //       error instanceof Error ? error.message : "Failed to update status"
-  //     )
-  //   },
-  // })
+  // Only fetch commercial data if user has commercial access
+  const { data: commercialEvalData } = useQuery({
+    ...hasCommercialEvaluationQueryOptions(id),
+    enabled: canViewCommercial,
+  })
+  const { data: commercialSummary } = useQuery({
+    ...packageCommercialSummaryQueryOptions(id),
+    enabled: canViewCommercial,
+  })
 
-  const openSettings = (tab: "general" | "members" | "activity") => {
-    setSettingsTab(tab)
-    setSettingsOpen(true)
-  }
-
-  // Get the latest technical evaluation details (if any)
-  const latestTechEval = technicalEvals.length > 0 ? technicalEvals[0] : null
+  // Get the latest technical evaluation details (if any and can view)
+  const latestTechEval =
+    canViewTechnical && technicalEvals && technicalEvals.length > 0
+      ? technicalEvals[0]
+      : null
   const { data: techEvalDetail } = useQuery({
     ...technicalEvaluationDetailQueryOptions(latestTechEval?.id ?? ""),
-    enabled: !!latestTechEval,
+    enabled: !!latestTechEval && canViewTechnical,
   })
 
   const awardPackage = useMutation({
@@ -239,11 +196,9 @@ function RouteComponent() {
         },
       }),
     onSuccess: () => {
-      // Invalidate package detail
       queryClient.invalidateQueries({
         queryKey: packageDetailQueryOptions(id).queryKey,
       })
-      // Also invalidate project detail (shows awarded contractor info)
       queryClient.invalidateQueries({
         queryKey: projectDetailQueryOptions(packageData.project.id).queryKey,
       })
@@ -259,18 +214,24 @@ function RouteComponent() {
     },
   })
 
-  const hasTechEval = technicalEvals.length > 0
-  const hasCommercialEval = commercialEvalData.hasEvaluation
+  const hasTechEval =
+    canViewTechnical && technicalEvals && technicalEvals.length > 0
+  const hasCommercialEval =
+    canViewCommercial && commercialEvalData?.hasEvaluation
 
-  // Calculate rankings
-  const techEvalData = techEvalDetail?.data as TechnicalEvaluationData | null
+  // Calculate rankings (only if access permits)
+  const techEvalData = canViewTechnical
+    ? (techEvalDetail?.data as TechnicalEvaluationData | null)
+    : null
   const technicalRankings = useMemo(
-    () => getTechnicalRankings(techEvalData, contractors),
-    [techEvalData, contractors]
+    () =>
+      canViewTechnical ? getTechnicalRankings(techEvalData, contractors) : [],
+    [techEvalData, contractors, canViewTechnical]
   )
   const commercialRankings = useMemo(
-    () => getCommercialRankings(commercialSummary),
-    [commercialSummary]
+    () =>
+      canViewCommercial ? getCommercialRankings(commercialSummary ?? null) : [],
+    [commercialSummary, canViewCommercial]
   )
 
   // Get awarded contractor info
@@ -316,307 +277,151 @@ function RouteComponent() {
 
   return (
     <>
-      <div className="flex flex-1 overflow-hidden h-full">
-        {/* Side menu */}
-        <div className="w-72 bg-white pb-4 px-[28px] overflow-auto space-y-6 border-r-[0.5px] border-black/15">
-          {/* Title */}
-          <h2 className="text-[16px] font-semibold text-gradient my-8 w-fit">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b-[0.5px] border-black/15 h-12 px-6">
+        <div className="flex items-center gap-4">
+          <span className="text-primary font-semibold text-16">
             Package summary
-          </h2>
-          {/* RAG Status */}
-          {/* <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Status
-            </label>
-            {canEdit ? (
-              <Select
-                value={packageData.package.ragStatus ?? "none"}
-                onValueChange={(v) =>
-                  updateRagStatus.mutate(v === "none" ? null : v)
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-muted-foreground">
-                    No status
-                  </SelectItem>
-                  {RAG_STATUSES.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>
-                      <div className="flex items-center gap-2">
-                        <div className={`size-2 rounded-full ${r.color}`} />
-                        {r.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : packageData.package.ragStatus ? (
-              <div className="flex items-center gap-2 text-sm">
-                <div
-                  className={`size-2 rounded-full ${RAG_STATUSES.find((r) => r.value === packageData.package.ragStatus)?.color}`}
-                />
-                <span>
-                  {
-                    RAG_STATUSES.find(
-                      (r) => r.value === packageData.package.ragStatus
-                    )?.label
-                  }
-                </span>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No status</p>
-            )}
-          </div> */}
-
-          {/* Stage */}
-          {/* <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Stage
-            </label>
-            {canEdit ? (
-              <Select
-                value={packageData.package.stage ?? "none"}
-                onValueChange={(v) =>
-                  updateStage.mutate(v === "none" ? null : v)
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-muted-foreground">
-                    No stage
-                  </SelectItem>
-                  {PROCUREMENT_STAGES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : packageData.package.stage ? (
-              <p className="text-sm">
-                {PROCUREMENT_STAGES.find(
-                  (s) => s.value === packageData.package.stage
-                )?.label ?? packageData.package.stage}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">No stage</p>
-            )}
-          </div> */}
-
-          {/* Parent Project */}
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">Parent Project</p>
-            <Link
-              to="/project/$id"
-              params={{ id: packageData.project.id }}
-              className="flex items-center gap-2 text-sm hover:underline"
-            >
-              <span>{packageData.project.name}</span>
-              <ExternalLink className="size-3" />
-            </Link>
-          </div>
-
-          {/* Members */}
-          <SidebarMembersSection
-            members={members}
-            type="package"
-            canEdit={canEdit}
-            onManageClick={() => openSettings("members")}
-            currentUserId={session?.user?.id}
-          />
-        </div>
-
-        {/* Main content */}
-        <div className="flex-1 overflow-auto p-6 space-y-6">
-          {/* Awarded Banner */}
-          {awardedContractor && (
-            <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="p-2 bg-green-100 rounded-full">
-                <Trophy className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="font-medium text-green-800">Package Awarded</p>
-                <p className="text-sm text-green-700">
-                  Awarded to{" "}
-                  <span className="font-semibold">
-                    {awardedContractor.name}
+          </span>
+          {!awardedContractor && contractors.length > 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (technicalRankings.length > 0) {
+                          const highestScorer = technicalRankings[0]
+                          if (
+                            eligibleContractors.some(
+                              (c) => c.id === highestScorer.id
+                            )
+                          ) {
+                            setSelectedContractorId(highestScorer.id)
+                          }
+                        }
+                        setAwardSheetOpen(true)
+                      }}
+                      disabled={!canAward}
+                    >
+                      <Award className="mr-1.5 h-3.5 w-3.5" />
+                      Award Package
+                    </Button>
                   </span>
-                </p>
+                </TooltipTrigger>
+                {awardDisabledReason && (
+                  <TooltipContent>
+                    <p>{awardDisabledReason}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+        <AIChatButton />
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+        {/* Awarded Banner */}
+        {awardedContractor && (
+          <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="p-2 bg-green-100 rounded-full">
+              <Trophy className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="font-medium text-green-800">Package Awarded</p>
+              <p className="text-sm text-green-700">
+                Awarded to{" "}
+                <span className="font-semibold">{awardedContractor.name}</span>
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Technical Evaluation Card */}
+          {canViewTechnical && (
+            <div className="border rounded-lg p-6 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <ClipboardList className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Technical Evaluation</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Evaluate contractors on technical criteria
+                  </p>
+                </div>
               </div>
+
+              <Button
+                variant={hasTechEval ? "outline" : "default"}
+                className="mt-auto"
+                onClick={() =>
+                  navigate({ to: "/package/$id/tech", params: { id } })
+                }
+              >
+                {hasTechEval
+                  ? "View Evaluations"
+                  : "Start Technical Evaluation"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">Package Summary</h2>
-            {!awardedContractor && contractors.length > 0 && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        onClick={() => {
-                          // Pre-select contractor with highest technical score
-                          if (technicalRankings.length > 0) {
-                            const highestScorer = technicalRankings[0]
-                            // Only pre-select if they're eligible
-                            if (
-                              eligibleContractors.some(
-                                (c) => c.id === highestScorer.id
-                              )
-                            ) {
-                              setSelectedContractorId(highestScorer.id)
-                            }
-                          }
-                          setAwardSheetOpen(true)
-                        }}
-                        disabled={!canAward}
-                      >
-                        <Award className="mr-2 h-4 w-4" />
-                        Award Package
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  {awardDisabledReason && (
-                    <TooltipContent>
-                      <p>{awardDisabledReason}</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
+          {/* Commercial Evaluation Card */}
+          {canViewCommercial && (
+            <div className="border rounded-lg p-6 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <FileText className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Commercial Evaluation</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Evaluate contractors on commercial criteria per asset
+                  </p>
+                </div>
+              </div>
 
+              <Button
+                variant={hasCommercialEval ? "outline" : "default"}
+                className="mt-auto"
+                onClick={() =>
+                  navigate({
+                    to: "/package/$id/comm",
+                    params: { id },
+                  })
+                }
+              >
+                {hasCommercialEval
+                  ? "View Evaluations"
+                  : "Start Commercial Evaluation"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Evaluation Summaries */}
+        {((canViewTechnical && technicalRankings.length > 0) ||
+          (canViewCommercial && commercialRankings.length > 0)) && (
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Technical Evaluation Card */}
-            {canViewTechnical && (
-              <div className="border rounded-lg p-6 flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <ClipboardList className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">Technical Evaluation</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Evaluate contractors on technical criteria
-                    </p>
-                  </div>
-                </div>
-
-                <Button
-                  variant={hasTechEval ? "outline" : "default"}
-                  className="mt-auto"
-                  onClick={() =>
-                    navigate({ to: "/package/$id/tech", params: { id } })
-                  }
-                >
-                  {hasTechEval
-                    ? "View Evaluations"
-                    : "Start Technical Evaluation"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            )}
-
-            {/* Commercial Evaluation Card */}
-            {canViewCommercial && (
-              <div className="border rounded-lg p-6 flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <FileText className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">Commercial Evaluation</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Evaluate contractors on commercial criteria per asset
-                    </p>
-                  </div>
-                </div>
-
-                {hasCommercialEval ? (
-                  <Button
-                    variant="outline"
-                    className="mt-auto"
-                    onClick={() =>
-                      navigate({
-                        to: "/package/$id/comm",
-                        params: { id },
-                      })
-                    }
-                  >
-                    View Evaluations
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="mt-auto"
-                    onClick={() =>
-                      navigate({
-                        to: "/package/$id/comm",
-                        params: { id },
-                      })
-                    }
-                  >
-                    Start Commercial Evaluation
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Evaluation Summaries */}
-          {((canViewTechnical && technicalRankings.length > 0) ||
-            (canViewCommercial && commercialRankings.length > 0)) && (
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Technical Summary */}
-              {canViewTechnical &&
-                technicalRankings.length > 0 &&
-                latestTechEval && (
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-sm">
-                        Technical Rankings
-                      </h4>
-                      <span className="text-xs text-muted-foreground">
-                        {latestTechEval.roundName}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {technicalRankings.map((contractor, index) => (
-                        <div
-                          key={contractor.id}
-                          className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-muted/50"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-muted-foreground w-5">
-                              #{index + 1}
-                            </span>
-                            <span>{contractor.name}</span>
-                          </div>
-                          <span className="font-medium">
-                            {contractor.score.toFixed(1)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {/* Commercial Summary */}
-              {canViewCommercial && commercialRankings.length > 0 && (
+            {/* Technical Summary */}
+            {canViewTechnical &&
+              technicalRankings.length > 0 &&
+              latestTechEval && (
                 <div className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-sm">Commercial Rankings</h4>
+                    <h4 className="font-medium text-sm">Technical Rankings</h4>
                     <span className="text-xs text-muted-foreground">
-                      Latest Round
+                      {latestTechEval.roundName}
                     </span>
                   </div>
                   <div className="space-y-2">
-                    {commercialRankings.map((contractor, index) => (
+                    {technicalRankings.map((contractor, index) => (
                       <div
                         key={contractor.id}
                         className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-muted/50"
@@ -628,19 +433,48 @@ function RouteComponent() {
                           <span>{contractor.name}</span>
                         </div>
                         <span className="font-medium">
-                          {formatCurrency(
-                            contractor.total,
-                            packageData.package.currency
-                          )}
+                          {contractor.score.toFixed(1)}
                         </span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
-          )}
-        </div>
+
+            {/* Commercial Summary */}
+            {canViewCommercial && commercialRankings.length > 0 && (
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-sm">Commercial Rankings</h4>
+                  <span className="text-xs text-muted-foreground">
+                    Latest Round
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {commercialRankings.map((contractor, index) => (
+                    <div
+                      key={contractor.id}
+                      className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-muted-foreground w-5">
+                          #{index + 1}
+                        </span>
+                        <span>{contractor.name}</span>
+                      </div>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          contractor.total,
+                          packageData.package.currency
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Award Package Sheet */}
@@ -778,16 +612,6 @@ function RouteComponent() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
-
-      {/* Settings Dialog */}
-      {canEdit && (
-        <PackageSettingsDialog
-          packageId={id}
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          defaultTab={settingsTab}
-        />
-      )}
     </>
   )
 }

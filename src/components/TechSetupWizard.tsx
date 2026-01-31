@@ -14,7 +14,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Upload, Check, Trash2, CheckCircle2, UserIcon } from "lucide-react"
+import { UploadZone, type UploadedFile } from "@/components/ui/upload-zone"
+import { StepTitle } from "@/components/ui/step-title"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
+import { Trash2, UserIcon, Sparkles, Download, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -247,26 +251,38 @@ export function TechSetupWizard({
   const navigate = useNavigate()
   const setTechRound = useStore((s) => s.setTechRound)
 
+  // Step state
   const [step, setStep] = useState(1)
-  const [documentsUploaded, setDocumentsUploaded] = useState(false)
+  const [isExtracting, setIsExtracting] = useState(false)
+
+  // Step 1 state
+  const [rfpFile, setRfpFile] = useState<UploadedFile[]>([])
+  const [criteriaMode, setCriteriaMode] = useState<"upload" | "ai" | null>(null)
+  const [criteriaFile, setCriteriaFile] = useState<UploadedFile[]>([])
+  const [vendorFiles, setVendorFiles] = useState<
+    Record<string, UploadedFile[]>
+  >({})
+
+  // Step 2 state (criteria editing)
   const [criteria, setCriteria] = useState<Scope[]>(() =>
     generateDefaultCriteria()
   )
-  const [proposalsUploaded, setProposalsUploaded] = useState<string[]>([])
 
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
       setStep(1)
-      setDocumentsUploaded(false)
+      setIsExtracting(false)
+      setRfpFile([])
+      setCriteriaMode(null)
+      setCriteriaFile([])
+      setVendorFiles({})
       setCriteria(generateDefaultCriteria())
-      setProposalsUploaded([])
     }
   }, [open])
 
   const createEvaluation = useMutation({
     mutationFn: async (evalData: TechnicalEvaluationData) => {
-      // Create the evaluation with all data
       const result = await createTechnicalEvaluationFn({
         data: { packageId, data: evalData },
       })
@@ -278,7 +294,6 @@ export function TechSetupWizard({
         queryKey: queryKeys.package.technicalEvaluations(packageId),
       })
       setTechRound(packageId, newEval.id)
-      // Navigate to the summary page
       navigate({ to: "/package/$id/tech", params: { id: packageId } })
     },
     onError: (error) => {
@@ -288,34 +303,49 @@ export function TechSetupWizard({
     },
   })
 
+  // Step 1 validation
+  const isRfpDone = rfpFile.length > 0
+  const isCriteriaDone =
+    criteriaMode === "ai" ||
+    (criteriaMode === "upload" && criteriaFile.length > 0)
+  const vendorsWithFiles = Object.entries(vendorFiles).filter(
+    ([, files]) => files.length > 0
+  ).length
+  const isVendorsDone = vendorsWithFiles >= 2
+
+  const canProceedStep1 = isRfpDone && isCriteriaDone && isVendorsDone
+
+  // Step 2 validation
   const totalWeight = criteria.reduce(
     (sum, scope) =>
       sum + scope.breakdowns.reduce((s, b) => s + (b.weight || 0), 0),
     0
   )
-
   const canProceedStep2 = totalWeight === 100
-  const canStartAnalysis = proposalsUploaded.length > 0
+
+  // Get contractor IDs with files
+  const proposalsUploaded = Object.entries(vendorFiles)
+    .filter(([, files]) => files.length > 0)
+    .map(([id]) => id)
 
   const handleNext = () => {
     if (step === 1) {
-      setStep(2)
-    } else if (step === 2) {
-      setStep(3)
+      // Show extracting state, then move to step 2
+      setIsExtracting(true)
+      setTimeout(() => {
+        setIsExtracting(false)
+        setStep(2)
+      }, 1500)
     }
   }
 
   const handleStartAnalysis = async () => {
-    // Generate fake scores
     const fakeScores = generateFakeScores(criteria, proposalsUploaded)
-
-    // Generate PTCs for contractors with uploaded proposals
     const contractorsWithProposals = contractors.filter((c) =>
       proposalsUploaded.includes(c.id)
     )
     const ptcs = generateMockPTCs(contractorsWithProposals)
 
-    // Create the evaluation with "analyzing" status
     const evaluationData: TechnicalEvaluationData = {
       status: "analyzing",
       setupStep: 3,
@@ -329,7 +359,6 @@ export function TechSetupWizard({
     const newEval = await createEvaluation.mutateAsync(evaluationData)
     onOpenChange(false)
 
-    // Simulate analysis delay then set to ready
     setTimeout(async () => {
       await updateTechnicalEvaluationFn({
         data: {
@@ -343,121 +372,299 @@ export function TechSetupWizard({
     }, 2000)
   }
 
-  const toggleProposal = (contractorId: string) => {
-    setProposalsUploaded((prev) =>
-      prev.includes(contractorId)
-        ? prev.filter((id) => id !== contractorId)
-        : [...prev, contractorId]
-    )
+  const handleVendorFilesChange = (vendorId: string, files: UploadedFile[]) => {
+    setVendorFiles((prev) => ({ ...prev, [vendorId]: files }))
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-        {step !== 2 && (
-          <DialogHeader>
-            <DialogTitle>
-              {step === 1 && "Step 1: Upload Documents"}
-              {step === 3 && "Step 3: Upload Contractor Proposals"}
-            </DialogTitle>
-            <DialogDescription>
-              {step === 1 &&
-                "Upload the RFP and evaluation criteria documents to extract evaluation parameters."}
-              {step === 3 &&
-                "Mark which contractors have submitted their proposals for evaluation."}
-            </DialogDescription>
-          </DialogHeader>
+        {isExtracting ? (
+          // Extracting state
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <Loader2 className="size-12 animate-spin text-primary" />
+            <div className="text-center">
+              <p className="font-medium text-lg">
+                Extracting Evaluation Criteria
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Analyzing your documents...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {step === 1 && "Step 1: Upload Documents"}
+                {step === 2 && "Step 2: Review Evaluation Criteria"}
+              </DialogTitle>
+              <DialogDescription>
+                {step === 1 &&
+                  "Upload the required documents and vendor proposals for technical evaluation."}
+                {step === 2 &&
+                  "Review and adjust the evaluation criteria extracted from your documents."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto py-4">
+              {step === 1 && (
+                <Step1Documents
+                  contractors={contractors}
+                  rfpFile={rfpFile}
+                  onRfpFileChange={setRfpFile}
+                  criteriaMode={criteriaMode}
+                  onCriteriaModeChange={setCriteriaMode}
+                  criteriaFile={criteriaFile}
+                  onCriteriaFileChange={setCriteriaFile}
+                  vendorFiles={vendorFiles}
+                  onVendorFilesChange={handleVendorFilesChange}
+                  vendorsWithFiles={vendorsWithFiles}
+                />
+              )}
+              {step === 2 && (
+                <Step2Criteria
+                  criteria={criteria}
+                  onChange={setCriteria}
+                  totalWeight={totalWeight}
+                />
+              )}
+            </div>
+
+            <DialogFooter>
+              {step > 1 && (
+                <Button variant="outline" onClick={() => setStep(step - 1)}>
+                  Back
+                </Button>
+              )}
+              {step === 1 && (
+                <Button
+                  onClick={handleNext}
+                  disabled={!canProceedStep1 || isExtracting}
+                >
+                  Next
+                </Button>
+              )}
+              {step === 2 && (
+                <Button
+                  onClick={handleStartAnalysis}
+                  disabled={!canProceedStep2 || createEvaluation.isPending}
+                >
+                  {createEvaluation.isPending
+                    ? "Starting..."
+                    : totalWeight !== 100
+                      ? `Weights: ${totalWeight}% (need 100%)`
+                      : "Start Analysis"}
+                </Button>
+              )}
+            </DialogFooter>
+          </>
         )}
-
-        <div className="flex-1 overflow-y-auto py-4">
-          {step === 1 && (
-            <Step1Upload
-              uploaded={documentsUploaded}
-              onUpload={() => setDocumentsUploaded(true)}
-            />
-          )}
-          {step === 2 && (
-            <Step2Criteria
-              criteria={criteria}
-              onChange={setCriteria}
-              totalWeight={totalWeight}
-            />
-          )}
-          {step === 3 && (
-            <Step3Proposals
-              contractors={contractors}
-              uploaded={proposalsUploaded}
-              onToggle={toggleProposal}
-            />
-          )}
-        </div>
-
-        <DialogFooter>
-          {step > 1 && (
-            <Button variant="outline" onClick={() => setStep(step - 1)}>
-              Back
-            </Button>
-          )}
-          {step === 1 && (
-            <Button onClick={handleNext} disabled={!documentsUploaded}>
-              Next
-            </Button>
-          )}
-          {step === 2 && (
-            <Button onClick={handleNext} disabled={!canProceedStep2}>
-              {totalWeight !== 100
-                ? `Weights: ${totalWeight}% (need 100%)`
-                : "Next"}
-            </Button>
-          )}
-          {step === 3 && (
-            <Button
-              onClick={handleStartAnalysis}
-              disabled={!canStartAnalysis || createEvaluation.isPending}
-            >
-              {createEvaluation.isPending ? "Starting..." : "Start Analysis"}
-            </Button>
-          )}
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
 
-function Step1Upload({
-  uploaded,
-  onUpload,
+// ============================================================================
+// Step 1: Document Upload
+// ============================================================================
+
+function Step1Documents({
+  contractors,
+  rfpFile,
+  onRfpFileChange,
+  criteriaMode,
+  onCriteriaModeChange,
+  criteriaFile,
+  onCriteriaFileChange,
+  vendorFiles,
+  onVendorFilesChange,
+  vendorsWithFiles,
 }: {
-  uploaded: boolean
-  onUpload: () => void
+  contractors: Array<{ id: string; name: string }>
+  rfpFile: UploadedFile[]
+  onRfpFileChange: (files: UploadedFile[]) => void
+  criteriaMode: "upload" | "ai" | null
+  onCriteriaModeChange: (mode: "upload" | "ai") => void
+  criteriaFile: UploadedFile[]
+  onCriteriaFileChange: (files: UploadedFile[]) => void
+  vendorFiles: Record<string, UploadedFile[]>
+  onVendorFilesChange: (vendorId: string, files: UploadedFile[]) => void
+  vendorsWithFiles: number
 }) {
+  const isRfpDone = rfpFile.length > 0
+  const isCriteriaDone =
+    criteriaMode === "ai" ||
+    (criteriaMode === "upload" && criteriaFile.length > 0)
+
   return (
-    <div className="space-y-4">
-      <div className="border-2 border-dashed rounded-lg p-8 text-center">
-        {uploaded ? (
-          <div className="flex flex-col items-center gap-2">
-            <CheckCircle2 className="size-12 text-green-600" />
-            <p className="font-medium">Documents uploaded</p>
-            <p className="text-sm text-muted-foreground">
-              RFP and evaluation criteria ready for processing
+    <div className="space-y-8 px-1">
+      {/* Section 1: RFP */}
+      <div className="space-y-3">
+        <StepTitle
+          title="Request For Proposals (RFP)"
+          complete={isRfpDone}
+          required
+        />
+        <UploadZone
+          files={rfpFile}
+          onFilesChange={onRfpFileChange}
+          accept=".pdf,.doc,.docx"
+        />
+      </div>
+
+      {/* Section 2: Evaluation Criteria */}
+      <div className="space-y-3">
+        <StepTitle
+          title="Evaluation Criteria"
+          complete={isCriteriaDone}
+          required
+        />
+
+        <RadioGroup
+          value={criteriaMode ?? ""}
+          onValueChange={(v) => onCriteriaModeChange(v as "upload" | "ai")}
+          className="space-y-3"
+        >
+          {/* Upload option */}
+          <div
+            className={cn(
+              "flex items-start gap-3 p-4 rounded-lg border transition-colors cursor-pointer",
+              criteriaMode === "upload"
+                ? "border-primary bg-primary/5"
+                : "hover:bg-muted/50"
+            )}
+            onClick={() => onCriteriaModeChange("upload")}
+          >
+            <RadioGroupItem
+              value="upload"
+              id="criteria-upload"
+              className="mt-1"
+            />
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="criteria-upload"
+                  className="cursor-pointer font-medium"
+                >
+                  Upload your own
+                </Label>
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    toast.success("Template download started")
+                  }}
+                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                >
+                  <Download className="size-3.5" />
+                  Download template
+                </a>
+              </div>
+              {criteriaMode === "upload" && (
+                <UploadZone
+                  files={criteriaFile}
+                  onFilesChange={onCriteriaFileChange}
+                  accept=".pdf,.doc,.docx,.xlsx"
+                  compact
+                />
+              )}
+            </div>
+          </div>
+
+          {/* AI option */}
+          <div
+            className={cn(
+              "flex items-start gap-3 p-4 rounded-lg border transition-colors cursor-pointer",
+              criteriaMode === "ai"
+                ? "border-primary bg-primary/5"
+                : "hover:bg-muted/50"
+            )}
+            onClick={() => onCriteriaModeChange("ai")}
+          >
+            <RadioGroupItem value="ai" id="criteria-ai" className="mt-1" />
+            <div className="flex-1">
+              <Label
+                htmlFor="criteria-ai"
+                className="cursor-pointer font-medium flex items-center gap-2"
+              >
+                <Sparkles className="size-4 text-amber-500" />
+                Generate with AI
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                We'll analyze your RFP and generate evaluation criteria
+                automatically
+              </p>
+            </div>
+          </div>
+        </RadioGroup>
+      </div>
+
+      {/* Section 3: Vendor Proposals */}
+      <div className="space-y-3">
+        <StepTitle
+          title={`Vendor Proposals (${vendorsWithFiles}/${contractors.length} vendors have files)`}
+          complete={vendorsWithFiles >= 2}
+          required
+        />
+
+        {contractors.length === 0 ? (
+          <div className="text-center py-8 border rounded-lg">
+            <UserIcon className="size-10 mx-auto text-muted-foreground mb-2" />
+            <p className="text-muted-foreground">
+              No contractors added to this package yet.
             </p>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2">
-            <Upload className="size-12 text-muted-foreground" />
-            <p className="font-medium">Upload RFP & Evaluation Criteria</p>
-            <p className="text-sm text-muted-foreground">
-              PDF, DOC, or DOCX files
-            </p>
-            <Button className="mt-4" onClick={onUpload}>
-              Mark as Uploaded
-            </Button>
+          <div className="space-y-3">
+            {contractors.map((contractor) => {
+              const files = vendorFiles[contractor.id] ?? []
+              const hasFiles = files.length > 0
+
+              return (
+                <div
+                  key={contractor.id}
+                  className={cn(
+                    "rounded-lg border p-4 transition-colors",
+                    hasFiles &&
+                      "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
+                  )}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
+                      <UserIcon size={16} className="text-muted-foreground" />
+                    </div>
+                    <span className="font-medium">{contractor.name}</span>
+                  </div>
+                  <UploadZone
+                    files={files}
+                    onFilesChange={(newFiles) =>
+                      onVendorFilesChange(contractor.id, newFiles)
+                    }
+                    multiple
+                    accept=".pdf,.doc,.docx,.xlsx"
+                    compact
+                  />
+                </div>
+              )
+            })}
+
+            {vendorsWithFiles < 2 && (
+              <p className="text-sm text-amber-600 dark:text-amber-500">
+                At least 2 vendors must have files to proceed
+              </p>
+            )}
           </div>
         )}
       </div>
     </div>
   )
 }
+
+// ============================================================================
+// Step 2: Criteria Review
+// ============================================================================
 
 // Inline editable text input that looks like plain text
 function InlineInput({
@@ -743,68 +950,6 @@ function Step2Criteria({
       >
         + Add a scope
       </button>
-    </div>
-  )
-}
-
-function Step3Proposals({
-  contractors,
-  uploaded,
-  onToggle,
-}: {
-  contractors: Array<{ id: string; name: string }>
-  uploaded: string[]
-  onToggle: (id: string) => void
-}) {
-  if (contractors.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <UserIcon className="size-12 mx-auto text-muted-foreground mb-2" />
-        <p className="text-muted-foreground">
-          No contractors added to this package yet.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      {contractors.map((contractor) => {
-        const isUploaded = uploaded.includes(contractor.id)
-        return (
-          <div
-            key={contractor.id}
-            className="flex items-center gap-3 p-4 rounded-lg border bg-card"
-          >
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted">
-              <UserIcon size={20} className="text-muted-foreground" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium">{contractor.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {isUploaded ? "Proposal uploaded" : "No proposal uploaded"}
-              </p>
-            </div>
-            <Button
-              variant={isUploaded ? "outline" : "default"}
-              size="sm"
-              onClick={() => onToggle(contractor.id)}
-            >
-              {isUploaded ? (
-                <>
-                  <Check className="size-4 mr-1" />
-                  Uploaded
-                </>
-              ) : (
-                <>
-                  <Upload className="size-4 mr-1" />
-                  Mark Uploaded
-                </>
-              )}
-            </Button>
-          </div>
-        )
-      })}
     </div>
   )
 }

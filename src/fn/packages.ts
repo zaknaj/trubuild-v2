@@ -24,6 +24,9 @@ export const createPackageFn = createServerFn({ method: "POST" })
       currency: z.string().optional(),
       technicalWeight: z.number().int().min(0).max(100).default(50),
       commercialWeight: z.number().int().min(0).max(100).default(50),
+      contractors: z
+        .array(z.string().trim().min(1))
+        .min(2, "At least 2 contractors are required"),
     })
   )
   .handler(async ({ data }) => {
@@ -58,6 +61,16 @@ export const createPackageFn = createServerFn({ method: "POST" })
         email: ctx.userEmail,
         role: "package_lead",
       })
+
+      // Create contractors
+      if (data.contractors.length > 0) {
+        await tx.insert(packageContractor).values(
+          data.contractors.map((name) => ({
+            name,
+            packageId: newPackage.id,
+          }))
+        )
+      }
 
       return newPackage
     })
@@ -154,47 +167,41 @@ export const getAssetDetailFn = createServerFn()
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
 
-    const [assetRecord] = await db
+    // Single query with joins instead of 3 sequential queries
+    const [result] = await db
       .select({
-        id: asset.id,
-        name: asset.name,
-        packageId: asset.packageId,
+        assetId: asset.id,
+        assetName: asset.name,
+        packageId: pkg.id,
+        packageName: pkg.name,
+        projectId: proj.id,
+        projectName: proj.name,
       })
       .from(asset)
+      .innerJoin(pkg, eq(asset.packageId, pkg.id))
+      .innerJoin(proj, eq(pkg.projectId, proj.id))
       .where(eq(asset.id, data.assetId))
       .limit(1)
 
-    if (!assetRecord) throw new Error(ERRORS.NOT_FOUND("Asset"))
+    if (!result) throw new Error(ERRORS.NOT_FOUND("Asset"))
 
-    await requirePackageAccess(ctx, assetRecord.packageId)
-
-    const [pkgRecord] = await db
-      .select({
-        id: pkg.id,
-        name: pkg.name,
-        projectId: pkg.projectId,
-      })
-      .from(pkg)
-      .where(eq(pkg.id, assetRecord.packageId))
-      .limit(1)
-
-    if (!pkgRecord) throw new Error(ERRORS.NOT_FOUND("Package"))
-
-    const [projectRecord] = await db
-      .select({
-        id: proj.id,
-        name: proj.name,
-      })
-      .from(proj)
-      .where(eq(proj.id, pkgRecord.projectId))
-      .limit(1)
-
-    if (!projectRecord) throw new Error(ERRORS.NOT_FOUND("Project"))
+    await requirePackageAccess(ctx, result.packageId)
 
     return {
-      asset: assetRecord,
-      package: pkgRecord,
-      project: projectRecord,
+      asset: {
+        id: result.assetId,
+        name: result.assetName,
+        packageId: result.packageId,
+      },
+      package: {
+        id: result.packageId,
+        name: result.packageName,
+        projectId: result.projectId,
+      },
+      project: {
+        id: result.projectId,
+        name: result.projectName,
+      },
     }
   })
 

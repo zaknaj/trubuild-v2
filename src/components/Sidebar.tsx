@@ -5,7 +5,7 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query"
-import { useState, useRef, useCallback, memo } from "react"
+import { useState, useRef, useCallback, memo, useLayoutEffect } from "react"
 import useStore, { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from "@/lib/store"
 import { cn, getOrgCountry } from "@/lib/utils"
 import {
@@ -15,16 +15,13 @@ import {
   Package,
   Plus,
   LogOutIcon,
-  ShieldIcon,
   SettingsIcon,
-  UserXIcon,
   LayoutDashboard,
   FolderKanban,
   Building2,
 } from "lucide-react"
 import {
   projectsQueryOptions,
-  packageDetailQueryOptions,
   orgsQueryOptions,
   sessionQueryOptions,
   currentUserOrgRoleQueryOptions,
@@ -174,7 +171,6 @@ const PackageItem = memo(function PackageItem({
 const ProjectItem = memo(function ProjectItem({
   project,
   isActive,
-  isExpanded,
   activePackageId,
 }: {
   project: {
@@ -183,7 +179,6 @@ const ProjectItem = memo(function ProjectItem({
     packages: { id: string; name: string }[]
   }
   isActive: boolean
-  isExpanded: boolean
   activePackageId: string | null
 }) {
   return (
@@ -196,7 +191,7 @@ const ProjectItem = memo(function ProjectItem({
         <Folder size={14} className="shrink-0 opacity-60" />
         <span className="truncate">{project.name}</span>
       </Link>
-      {isExpanded && (
+      {project.packages.length > 0 && (
         <div className="pl-4 flex flex-col gap-px">
           {project.packages.map((pkg) => (
             <PackageItem
@@ -237,12 +232,6 @@ function ProjectTree() {
   const orgCountry = getOrgCountry(activeOrg?.metadata)
   const [projectCountry, setProjectCountry] = useState(orgCountry)
 
-  // When on a package route, fetch package data to get the parent project
-  const { data: packageData } = useQuery({
-    ...packageDetailQueryOptions(route.packageId ?? ""),
-    enabled: route.isOnPackage,
-  })
-
   const createProject = useMutation({
     mutationFn: ({ name, country }: { name: string; country: string }) =>
       createProjectFn({ data: { name, country } }),
@@ -266,11 +255,6 @@ function ProjectTree() {
     if (!name) return
     createProject.mutate({ name, country: projectCountry })
   }
-
-  // Determine which project is expanded (on project page or on a package page)
-  const expandedProjectId = route.isOnProject
-    ? route.projectId
-    : (packageData?.project?.id ?? null)
 
   // Determine active states for highlighting
   const activeProjectId = route.isOnProject ? route.projectId : null
@@ -302,7 +286,6 @@ function ProjectTree() {
                 key={project.id}
                 project={project}
                 isActive={activeProjectId === project.id}
-                isExpanded={expandedProjectId === project.id}
                 activePackageId={activePackageId}
               />
             ))}
@@ -375,7 +358,6 @@ function ProjectTree() {
 const CollapsedProjectItem = memo(function CollapsedProjectItem({
   project,
   isActive,
-  isExpanded,
   activePackageId,
 }: {
   project: {
@@ -384,7 +366,6 @@ const CollapsedProjectItem = memo(function CollapsedProjectItem({
     packages: { id: string; name: string }[]
   }
   isActive: boolean
-  isExpanded: boolean
   activePackageId: string | null
 }) {
   return (
@@ -406,26 +387,25 @@ const CollapsedProjectItem = memo(function CollapsedProjectItem({
         </TooltipTrigger>
         <TooltipContent side="right">{project.name}</TooltipContent>
       </Tooltip>
-      {isExpanded &&
-        project.packages.map((pkg) => (
-          <Tooltip key={pkg.id}>
-            <TooltipTrigger asChild>
-              <Link
-                to="/package/$id"
-                params={{ id: pkg.id }}
-                className={cn(
-                  "size-7 flex items-center justify-center rounded-md transition-colors",
-                  activePackageId === pkg.id
-                    ? "bg-white/20 shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.2)]"
-                    : "hover:bg-black/20"
-                )}
-              >
-                <Package size={14} />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">{pkg.name}</TooltipContent>
-          </Tooltip>
-        ))}
+      {project.packages.map((pkg) => (
+        <Tooltip key={pkg.id}>
+          <TooltipTrigger asChild>
+            <Link
+              to="/package/$id"
+              params={{ id: pkg.id }}
+              className={cn(
+                "size-7 flex items-center justify-center rounded-md transition-colors",
+                activePackageId === pkg.id
+                  ? "bg-white/20 shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.2)]"
+                  : "hover:bg-black/20"
+              )}
+            >
+              <Package size={14} />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">{pkg.name}</TooltipContent>
+        </Tooltip>
+      ))}
     </>
   )
 })
@@ -439,16 +419,6 @@ function CollapsedProjectTree() {
 
   const { data: projects = [] } = useQuery(projectsQueryOptions)
 
-  const { data: packageData } = useQuery({
-    ...packageDetailQueryOptions(route.packageId ?? ""),
-    enabled: route.isOnPackage,
-  })
-
-  // Auto-expand project when on project or package page
-  const expandedProjectId = route.isOnProject
-    ? route.projectId
-    : (packageData?.project?.id ?? null)
-
   const activeProjectId = route.isOnProject ? route.projectId : null
   const activePackageId = route.isOnPackage ? route.packageId : null
 
@@ -461,7 +431,6 @@ function CollapsedProjectTree() {
           key={project.id}
           project={project}
           isActive={activeProjectId === project.id}
-          isExpanded={expandedProjectId === project.id}
           activePackageId={activePackageId}
         />
       ))}
@@ -482,18 +451,10 @@ function CollapsedAccountButton({
   const user = session?.user
   const queryClient = useQueryClient()
 
-  const isSuperuser = user?.email?.endsWith("@trubuild.io") ?? false
-  const isImpersonating = !!session?.session?.impersonatedBy
-
   const handleLogout = async () => {
     await authClient.signOut()
     queryClient.clear()
     window.location.href = "/login"
-  }
-
-  const handleStopImpersonating = async () => {
-    await authClient.admin.stopImpersonating()
-    window.location.reload()
   }
 
   const getInitials = () => {
@@ -512,11 +473,14 @@ function CollapsedAccountButton({
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <button className="size-7 flex items-center justify-center rounded-md transition-colors hover:bg-black/20">
+            <button
+              className="size-7 flex items-center justify-center rounded-md transition-colors hover:bg-black/20"
+              aria-label="Account menu"
+            >
               {user?.image ? (
                 <img
                   src={user.image}
-                  alt=""
+                  alt={user.name || "User avatar"}
                   className="size-6 rounded-full object-cover"
                 />
               ) : (
@@ -536,32 +500,13 @@ function CollapsedAccountButton({
         side="right"
         className="min-w-40 w-fit text-13"
       >
-        <DropdownMenuLabel className="flex flex-col gap-0.5 whitespace-nowrap">
+        <DropdownMenuLabel className="whitespace-nowrap">
           {user?.email}
-          {isImpersonating && (
-            <span className="text-xs text-amber-600 font-normal">
-              Impersonating
-            </span>
-          )}
         </DropdownMenuLabel>
-        {isSuperuser && (
-          <DropdownMenuItem asChild>
-            <Link to="/admin">
-              <ShieldIcon size="10" />
-              Admin
-            </Link>
-          </DropdownMenuItem>
-        )}
         <DropdownMenuItem onSelect={onSettingsClick}>
           <SettingsIcon size="10" />
           Settings
         </DropdownMenuItem>
-        {isImpersonating && (
-          <DropdownMenuItem onSelect={handleStopImpersonating}>
-            <UserXIcon size="10" />
-            Stop Impersonating
-          </DropdownMenuItem>
-        )}
         <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
           <LogOutIcon size="10" />
           Log out
@@ -619,7 +564,7 @@ function SidebarOrgButton({
           {activeOrganization?.logo && (
             <img
               src={activeOrganization.logo}
-              alt=""
+              alt={`${activeOrganization.name} logo`}
               className="size-6 rounded-full object-cover shrink-0"
             />
           )}
@@ -654,7 +599,7 @@ function SidebarOrgButton({
               ) : org.logo ? (
                 <img
                   src={org.logo}
-                  alt=""
+                  alt={`${org.name} logo`}
                   className="size-6 rounded-full object-cover"
                 />
               ) : (
@@ -695,18 +640,10 @@ function SidebarAccountButton({
   const user = session?.user
   const queryClient = useQueryClient()
 
-  const isSuperuser = user?.email?.endsWith("@trubuild.io") ?? false
-  const isImpersonating = !!session?.session?.impersonatedBy
-
   const handleLogout = async () => {
     await authClient.signOut()
     queryClient.clear()
     window.location.href = "/login"
-  }
-
-  const handleStopImpersonating = async () => {
-    await authClient.admin.stopImpersonating()
-    window.location.reload()
   }
 
   return (
@@ -716,7 +653,7 @@ function SidebarAccountButton({
           {user?.image ? (
             <img
               src={user.image}
-              alt=""
+              alt={user.name || "User avatar"}
               className="size-6 rounded-full object-cover shrink-0"
             />
           ) : (
@@ -732,32 +669,13 @@ function SidebarAccountButton({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-40 w-fit text-13">
-        <DropdownMenuLabel className="flex flex-col gap-0.5 whitespace-nowrap">
+        <DropdownMenuLabel className="whitespace-nowrap">
           {user?.email}
-          {isImpersonating && (
-            <span className="text-xs text-amber-600 font-normal">
-              Impersonating
-            </span>
-          )}
         </DropdownMenuLabel>
-        {isSuperuser && (
-          <DropdownMenuItem asChild>
-            <Link to="/admin">
-              <ShieldIcon size="10" />
-              Admin
-            </Link>
-          </DropdownMenuItem>
-        )}
         <DropdownMenuItem onSelect={onSettingsClick}>
           <SettingsIcon size="10" />
           Settings
         </DropdownMenuItem>
-        {isImpersonating && (
-          <DropdownMenuItem onSelect={handleStopImpersonating}>
-            <UserXIcon size="10" />
-            Stop Impersonating
-          </DropdownMenuItem>
-        )}
         <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
           <LogOutIcon size="10" />
           Log out
@@ -820,6 +738,7 @@ function ResizeHandle({
 // ============================================================================
 
 export const Sidebar = () => {
+  const location = useLocation()
   // Use selectors to avoid re-renders when unrelated store values change
   const navbarOpen = useStore((s) => s.navbarOpen)
   const setNavbarOpen = useStore((s) => s.setNavbarOpen)
@@ -828,6 +747,21 @@ export const Sidebar = () => {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // Derive initial collapsed state from URL (works during SSR too)
+  const isOnProjectOrPackage =
+    location.pathname.startsWith("/project/") ||
+    location.pathname.startsWith("/package/")
+
+  // Before hydration, use URL-derived state. After hydration, use store state.
+  const shouldBeCollapsed = !isHydrated ? isOnProjectOrPackage : !navbarOpen
+
+  // On mount, sync store state with URL-derived state
+  useLayoutEffect(() => {
+    setNavbarOpen(!isOnProjectOrPackage)
+    setIsHydrated(true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleResizeEnd = useCallback(
     (finalWidth: number) => {
@@ -837,7 +771,7 @@ export const Sidebar = () => {
   )
 
   // Collapsed state
-  if (!navbarOpen) {
+  if (shouldBeCollapsed) {
     return (
       <>
         <div className="w-12 text-white flex flex-col py-3">

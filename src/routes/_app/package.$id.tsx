@@ -1,18 +1,15 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-import {
-  useSuspenseQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
-import { PackageHeader } from "@/components/PackageHeader"
+import { PackageSidebar } from "@/components/PackageSidebar"
 import { PackageSettingsDialog } from "@/components/PackageSettingsDialog"
-import { renamePackageFn } from "@/fn"
 import {
   packageDetailQueryOptions,
   packageMembersQueryOptions,
+  packageContractorsQueryOptions,
   packageAccessQueryOptions,
-  projectDetailQueryOptions,
+  technicalEvaluationsQueryOptions,
+  packageCommercialSummaryQueryOptions,
 } from "@/lib/query-options"
 
 export const Route = createFileRoute("/_app/package/$id")({
@@ -36,6 +33,13 @@ export const Route = createFileRoute("/_app/package/$id")({
   loader: ({ params, context }) => {
     context.queryClient.prefetchQuery(packageDetailQueryOptions(params.id))
     context.queryClient.prefetchQuery(packageMembersQueryOptions(params.id))
+    context.queryClient.prefetchQuery(packageContractorsQueryOptions(params.id))
+    context.queryClient.prefetchQuery(
+      technicalEvaluationsQueryOptions(params.id)
+    )
+    context.queryClient.prefetchQuery(
+      packageCommercialSummaryQueryOptions(params.id)
+    )
     // Access already checked in beforeLoad, but prefetch for component use
     context.queryClient.prefetchQuery(packageAccessQueryOptions(params.id))
   },
@@ -44,9 +48,6 @@ export const Route = createFileRoute("/_app/package/$id")({
 
 function RouteComponent() {
   const { id } = Route.useParams()
-  const queryClient = useQueryClient()
-  const { data } = useSuspenseQuery(packageDetailQueryOptions(id))
-  const { data: members } = useSuspenseQuery(packageMembersQueryOptions(id))
   const { data: accessData } = useSuspenseQuery(packageAccessQueryOptions(id))
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState<
@@ -54,24 +55,6 @@ function RouteComponent() {
   >("general")
 
   const canEdit = accessData.access === "full"
-  const canViewTechnical =
-    accessData.access === "full" || accessData.access === "technical"
-  const canViewCommercial =
-    accessData.access === "full" || accessData.access === "commercial"
-
-  const renamePackage = useMutation({
-    mutationFn: (name: string) =>
-      renamePackageFn({ data: { packageId: id, name } }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: packageDetailQueryOptions(id).queryKey,
-      })
-      // Also update sidebar (packages are shown via project detail)
-      queryClient.invalidateQueries({
-        queryKey: projectDetailQueryOptions(data.project.id).queryKey,
-      })
-    },
-  })
 
   const openSettings = (
     tab: "general" | "members" | "activity" = "general"
@@ -84,20 +67,10 @@ function RouteComponent() {
 
   return (
     <>
-      <PackageHeader
-        packageId={id}
-        title={data.package.name}
-        onTitleChange={
-          canEdit ? (name) => renamePackage.mutate(name) : undefined
-        }
-        onSettingsClick={canEdit ? () => openSettings("general") : undefined}
-        onActivityClick={canEdit ? () => openSettings("activity") : undefined}
-        members={canEdit ? members : undefined}
-        onMembersClick={canEdit ? () => openSettings("members") : undefined}
-        canViewTechnical={canViewTechnical}
-        canViewCommercial={canViewCommercial}
-      />
-      <div className="flex-1 overflow-hidden">{outlet}</div>
+      <div className="flex flex-1 overflow-hidden h-full">
+        <PackageSidebar packageId={id} onSettingsClick={openSettings} />
+        <div className="flex-1 flex flex-col overflow-hidden">{outlet}</div>
+      </div>
       {canEdit && (
         <PackageSettingsDialog
           packageId={id}

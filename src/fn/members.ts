@@ -35,6 +35,23 @@ export const getCurrentUserOrgRoleFn = createServerFn().handler(async () => {
 
 export const getOrgMembersFn = createServerFn().handler(async () => {
   const ctx = await getAuthContext()
+
+  // Verify user is a member of this organization
+  const [userMembership] = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(
+      and(
+        eq(member.userId, ctx.userId),
+        eq(member.organizationId, ctx.activeOrgId)
+      )
+    )
+    .limit(1)
+
+  if (!userMembership) {
+    throw new Error(ERRORS.NO_ACCESS("organization"))
+  }
+
   const members = await db
     .select({
       id: member.id,
@@ -53,6 +70,23 @@ export const getOrgMembersFn = createServerFn().handler(async () => {
 
 export const getOrgPendingInvitesFn = createServerFn().handler(async () => {
   const ctx = await getAuthContext()
+
+  // Verify user is a member of this organization
+  const [userMembership] = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(
+      and(
+        eq(member.userId, ctx.userId),
+        eq(member.organizationId, ctx.activeOrgId)
+      )
+    )
+    .limit(1)
+
+  if (!userMembership) {
+    throw new Error(ERRORS.NO_ACCESS("organization"))
+  }
+
   const pending = await db
     .select({
       id: invitation.id,
@@ -192,12 +226,22 @@ export const getProjectAccessFn = createServerFn()
   .inputValidator(z.object({ projectId: z.uuid() }))
   .handler(async ({ data }) => {
     const ctx = await getAuthContext()
-    const { access, orgRole, projectRole, packageRole, isCreator, hasProjectLevelAccess } = await getProjectAccess(
-      ctx.userId,
-      data.projectId,
-      ctx.activeOrgId
-    )
-    return { access, orgRole, projectRole, packageRole, isCreator, hasProjectLevelAccess }
+    const {
+      access,
+      orgRole,
+      projectRole,
+      packageRole,
+      isCreator,
+      hasProjectLevelAccess,
+    } = await getProjectAccess(ctx.userId, data.projectId, ctx.activeOrgId)
+    return {
+      access,
+      orgRole,
+      projectRole,
+      packageRole,
+      isCreator,
+      hasProjectLevelAccess,
+    }
   })
 
 export const addProjectMemberFn = createServerFn({ method: "POST" })
@@ -231,7 +275,10 @@ export const addProjectMemberFn = createServerFn({ method: "POST" })
         userId: existingUser?.id ?? null,
         role: data.role,
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: [projectMember.projectId, projectMember.email],
+        set: { role: data.role, userId: existingUser?.id ?? null },
+      })
 
     return { success: true }
   })
@@ -331,7 +378,10 @@ export const addPackageMemberFn = createServerFn({ method: "POST" })
         userId: existingUser?.id ?? null,
         role: data.role,
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: [packageMember.packageId, packageMember.email],
+        set: { role: data.role, userId: existingUser?.id ?? null },
+      })
 
     return { success: true }
   })

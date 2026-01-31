@@ -451,7 +451,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                           {session?.user?.image ? (
                             <img
                               src={session.user.image}
-                              alt=""
+                              alt={session.user.name || "Profile image"}
                               className="size-12 rounded-full object-cover"
                             />
                           ) : (
@@ -523,7 +523,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                           {activeOrg?.logo ? (
                             <img
                               src={activeOrg.logo}
-                              alt=""
+                              alt={`${activeOrg.name} logo`}
                               className="size-12 rounded-lg object-cover"
                             />
                           ) : (
@@ -658,7 +658,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                           {m.userImage ? (
                             <img
                               src={m.userImage}
-                              alt=""
+                              alt={m.userName || m.email}
                               className="size-7 rounded-full object-cover"
                             />
                           ) : (

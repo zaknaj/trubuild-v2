@@ -10,9 +10,8 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query"
-import { BoxIcon, PlusIcon, ChevronRightIcon } from "lucide-react"
+import { BoxIcon, PlusIcon, ChevronRightIcon, X, UserIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
   Sheet,
   SheetContent,
@@ -23,27 +22,24 @@ import {
 } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ProjectHeader } from "@/components/ProjectHeader"
+import { ProjectSidebar } from "@/components/ProjectSidebar"
 import { ProjectSettingsDialog } from "@/components/ProjectSettingsDialog"
-import { createPackageFn, renameProjectFn } from "@/fn"
+import { createPackageFn } from "@/fn"
 import {
   projectDetailQueryOptions,
   projectAccessQueryOptions,
   projectMembersQueryOptions,
   projectsQueryOptions,
-  sessionQueryOptions,
 } from "@/lib/query-options"
 import { getCurrencyForCountry } from "@/lib/countries"
 import { CurrencySelect } from "@/components/CurrencySelect"
-import { SidebarMembersSection } from "@/components/SidebarMembersSection"
-// import { PROCUREMENT_STAGES, RAG_STATUSES } from "@/lib/constants"
+import { AIChatButton } from "@/components/AIChatButton"
+import { StepTitle } from "@/components/ui/step-title"
 
 type PackageWithAssetCount = {
   id: string
   name: string
   currency: string | null
-  // stage: string | null
-  // ragStatus: string | null
   projectId: string
   assetCount: number
   awardedContractorId: string | null
@@ -52,7 +48,6 @@ type PackageWithAssetCount = {
 
 export const Route = createFileRoute("/_app/project/$id")({
   beforeLoad: async ({ params, context }) => {
-    // Check access before loading the route
     try {
       const accessData = await context.queryClient.ensureQueryData(
         projectAccessQueryOptions(params.id)
@@ -61,7 +56,6 @@ export const Route = createFileRoute("/_app/project/$id")({
         throw redirect({ to: "/" })
       }
     } catch (error) {
-      // If access check fails (e.g., project not found), redirect to home
       if (error instanceof Error && !("to" in error)) {
         throw redirect({ to: "/" })
       }
@@ -70,7 +64,6 @@ export const Route = createFileRoute("/_app/project/$id")({
   },
   loader: ({ params, context }) => {
     context.queryClient.prefetchQuery(projectDetailQueryOptions(params.id))
-    // Access already checked in beforeLoad, but prefetch for component use
     context.queryClient.prefetchQuery(projectAccessQueryOptions(params.id))
     context.queryClient.prefetchQuery(projectMembersQueryOptions(params.id))
   },
@@ -83,8 +76,6 @@ function RouteComponent() {
   const queryClient = useQueryClient()
   const { data: projectData } = useSuspenseQuery(projectDetailQueryOptions(id))
   const { data: accessData } = useSuspenseQuery(projectAccessQueryOptions(id))
-  const { data: members } = useSuspenseQuery(projectMembersQueryOptions(id))
-  const { data: session } = useSuspenseQuery(sessionQueryOptions)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState<
     "general" | "members" | "activity"
@@ -92,32 +83,20 @@ function RouteComponent() {
 
   const { project, packages } = projectData
 
-  // Users with only package-level access should not see project settings/members/activity
   const hasProjectLevelAccess = accessData.hasProjectLevelAccess
+  const canViewCommercial =
+    accessData.access === "full" || accessData.access === "commercial"
 
-  // Default currency based on project's country
   const defaultCurrency = getCurrencyForCountry(project.country ?? "") ?? "USD"
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [packageName, setPackageName] = useState("")
   const [packageCurrency, setPackageCurrency] = useState(defaultCurrency)
   const [technicalWeight, setTechnicalWeight] = useState(50)
+  const [contractors, setContractors] = useState<string[]>([])
+  const [newContractorName, setNewContractorName] = useState("")
 
   const canCreatePackage = accessData.access === "full"
-
-  const renameProject = useMutation({
-    mutationFn: (name: string) =>
-      renameProjectFn({ data: { projectId: project.id, name } }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: projectDetailQueryOptions(project.id).queryKey,
-      })
-      // Also update sidebar
-      queryClient.invalidateQueries({
-        queryKey: projectsQueryOptions.queryKey,
-      })
-    },
-  })
 
   const createPackage = useMutation({
     mutationFn: ({
@@ -125,11 +104,13 @@ function RouteComponent() {
       currency,
       technicalWeight,
       commercialWeight,
+      contractors,
     }: {
       name: string
       currency: string
       technicalWeight: number
       commercialWeight: number
+      contractors: string[]
     }) =>
       createPackageFn({
         data: {
@@ -138,23 +119,20 @@ function RouteComponent() {
           currency,
           technicalWeight,
           commercialWeight,
+          contractors,
         },
       }),
     onSuccess: (newPackage) => {
-      // Invalidate project detail to show new package
       queryClient.invalidateQueries({
         queryKey: projectDetailQueryOptions(project.id).queryKey,
       })
-      // Also invalidate sidebar projects list (shows package counts)
       queryClient.invalidateQueries({
         queryKey: projectsQueryOptions.queryKey,
       })
       closeDrawer()
-      // Navigate to the new package's contractors page with add contractor sheet open
       navigate({
-        to: "/package/$id/contractors",
+        to: "/package/$id",
         params: { id: newPackage.id },
-        search: { addContractor: true },
       })
     },
   })
@@ -164,18 +142,32 @@ function RouteComponent() {
     setPackageName("")
     setPackageCurrency(defaultCurrency)
     setTechnicalWeight(50)
+    setContractors([])
+    setNewContractorName("")
     createPackage.reset()
+  }
+
+  const handleAddContractor = () => {
+    const name = newContractorName.trim()
+    if (!name || contractors.includes(name)) return
+    setContractors((prev) => [...prev, name])
+    setNewContractorName("")
+  }
+
+  const handleRemoveContractor = (name: string) => {
+    setContractors((prev) => prev.filter((c) => c !== name))
   }
 
   const handleCreatePackage = (e: React.FormEvent) => {
     e.preventDefault()
     const name = packageName.trim()
-    if (!name) return
+    if (!name || contractors.length < 2) return
     createPackage.mutate({
       name,
       currency: packageCurrency,
       technicalWeight,
       commercialWeight: 100 - technicalWeight,
+      contractors,
     })
   }
 
@@ -197,118 +189,86 @@ function RouteComponent() {
 
     return (
       <div className="border rounded-lg divide-y">
-        {packages.map((pkg: PackageWithAssetCount) => (
-          <Link
-            key={pkg.id}
-            to="/package/$id"
-            params={{ id: pkg.id }}
-            className={`group flex flex-col px-3 py-2.5 hover:bg-muted/50 transition-colors ${
-              pkg.awardedContractorName ? "bg-green-50" : ""
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <BoxIcon size={16} className="text-muted-foreground shrink-0" />
-              <div className="flex-1 min-w-0 flex items-center gap-2">
-                <span className="font-medium text-sm truncate">{pkg.name}</span>
-                {/* {pkg.ragStatus &&
-                  (() => {
-                    const rag = RAG_STATUSES.find(
-                      (r) => r.value === pkg.ragStatus
-                    )
-                    return rag ? (
-                      <span
-                        className={`size-2 rounded-full ${rag.color}`}
-                        title={`Status: ${rag.label}`}
-                      />
-                    ) : null
-                  })()} */}
+        {packages.map((pkg: PackageWithAssetCount) => {
+          // Only show awarded info to users with commercial access
+          const showAwarded = canViewCommercial && pkg.awardedContractorName
+          return (
+            <Link
+              key={pkg.id}
+              to="/package/$id"
+              params={{ id: pkg.id }}
+              className={`group flex flex-col px-3 py-2.5 hover:bg-muted/50 transition-colors ${
+                showAwarded ? "bg-green-50" : ""
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <BoxIcon size={16} className="text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <span className="font-medium text-sm truncate">
+                    {pkg.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-muted-foreground">
+                    {pkg.assetCount} {pkg.assetCount === 1 ? "asset" : "assets"}
+                  </span>
+                  <ChevronRightIcon
+                    size={14}
+                    className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors"
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground">
-                  {pkg.assetCount} {pkg.assetCount === 1 ? "asset" : "assets"}
-                </span>
-                {/* {pkg.stage && (
-                  <Badge variant="secondary" className="text-[10px] h-5">
-                    {PROCUREMENT_STAGES.find((s) => s.value === pkg.stage)
-                      ?.label ?? pkg.stage}
-                  </Badge>
-                )} */}
-                <ChevronRightIcon
-                  size={14}
-                  className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors"
-                />
-              </div>
-            </div>
-            {pkg.awardedContractorName && (
-              <div className="ml-7 mt-1 text-xs text-green-700">
-                Awarded to {pkg.awardedContractorName}
-              </div>
-            )}
-          </Link>
-        ))}
+              {showAwarded && (
+                <div className="ml-7 mt-1 text-xs text-green-700">
+                  Awarded to {pkg.awardedContractorName}
+                </div>
+              )}
+            </Link>
+          )
+        })}
       </div>
     )
-  }, [packages])
+  }, [packages, canViewCommercial])
 
   return (
     <>
-      <ProjectHeader
-        title={project.name}
-        onTitleChange={
-          hasProjectLevelAccess
-            ? (name) => renameProject.mutate(name)
-            : undefined
-        }
-        onSettingsClick={
-          hasProjectLevelAccess ? () => openSettings("general") : undefined
-        }
-        onActivityClick={
-          hasProjectLevelAccess ? () => openSettings("activity") : undefined
-        }
-        members={hasProjectLevelAccess ? members : undefined}
-        onMembersClick={
-          hasProjectLevelAccess ? () => openSettings("members") : undefined
-        }
-      />
       <div className="flex flex-1 overflow-hidden h-full">
-        {/* Side menu */}
+        {/* Sidebar */}
         {hasProjectLevelAccess && (
-          <div className="w-72 bg-white pb-4 px-[28px] overflow-auto space-y-6 border-r-[0.5px] border-black/15">
-            {/* Title */}
-            <h2 className="text-[16px] font-semibold text-gradient my-8 w-fit">
-              Project summary
-            </h2>
-            {/* Members */}
-            <SidebarMembersSection
-              members={members}
-              type="project"
-              canEdit={true}
-              onManageClick={() => openSettings("members")}
-              currentUserId={session?.user?.id}
-            />
-          </div>
+          <ProjectSidebar projectId={id} onSettingsClick={openSettings} />
         )}
 
         {/* Main content */}
-        <div className="flex-1 overflow-auto">
-          <div className="max-w-[600px] mx-auto p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-muted-foreground">
-                Packages
-              </h2>
-              {canCreatePackage && (
-                <Button
-                  onClick={() => setDrawerOpen(true)}
-                  size="sm"
-                  variant="outline"
-                >
-                  <PlusIcon size={14} />
-                  New package
-                </Button>
-              )}
-            </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b-[0.5px] border-black/15 h-12 px-6">
+            <span className="text-primary font-semibold text-16">
+              Project overview
+            </span>
+            <AIChatButton />
+          </div>
 
-            {packagesList}
+          {/* Content */}
+          <div className="flex-1 overflow-auto">
+            <div className="max-w-[600px] mx-auto p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Packages
+                </h2>
+                {canCreatePackage && (
+                  <Button
+                    onClick={() => setDrawerOpen(true)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <PlusIcon size={14} />
+                    New package
+                  </Button>
+                )}
+              </div>
+
+              {packagesList}
+            </div>
           </div>
         </div>
       </div>
@@ -323,7 +283,7 @@ function RouteComponent() {
       )}
 
       <Sheet open={drawerOpen} onOpenChange={(open) => !open && closeDrawer()}>
-        <SheetContent className="min-w-[500px] sm:max-w-none">
+        <SheetContent className="min-w-[500px] sm:max-w-none overflow-y-auto">
           <form className="space-y-6" onSubmit={handleCreatePackage}>
             <SheetHeader>
               <SheetTitle>Create package</SheetTitle>
@@ -331,7 +291,7 @@ function RouteComponent() {
                 Packages live inside your project and gather related assets.
               </SheetDescription>
             </SheetHeader>
-            <div className="px-2 space-y-4">
+            <div className="px-2 space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="package-name">Package name</Label>
                 <Input
@@ -405,6 +365,86 @@ function RouteComponent() {
                   </div>
                 </div>
               </div>
+
+              {/* Contractors Section */}
+              <div className="space-y-3">
+                <StepTitle
+                  title={`Contractors (${contractors.length})`}
+                  complete={contractors.length >= 2}
+                  required
+                />
+
+                {/* Add contractor input */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. BuildCorp International"
+                    value={newContractorName}
+                    onChange={(e) => setNewContractorName(e.target.value)}
+                    disabled={createPackage.isPending}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleAddContractor()
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAddContractor}
+                    disabled={
+                      createPackage.isPending || !newContractorName.trim()
+                    }
+                  >
+                    <PlusIcon size={14} className="mr-1" />
+                    Add
+                  </Button>
+                </div>
+
+                {/* Contractor list */}
+                {contractors.length > 0 ? (
+                  <div className="border rounded-lg divide-y">
+                    {contractors.map((name) => (
+                      <div
+                        key={name}
+                        className="flex items-center gap-3 px-3 py-2.5"
+                      >
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted">
+                          <UserIcon
+                            size={16}
+                            className="text-muted-foreground"
+                          />
+                        </div>
+                        <span className="font-medium text-sm flex-1">
+                          {name}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="size-7 p-0 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => handleRemoveContractor(name)}
+                          disabled={createPackage.isPending}
+                        >
+                          <X size={14} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-muted-foreground">
+                    No contractors yet. Add at least 2 to create the package.
+                  </div>
+                )}
+
+                {contractors.length > 0 && contractors.length < 2 && (
+                  <p className="text-sm text-amber-600">
+                    Add at least {2 - contractors.length} more contractor
+                    {contractors.length === 1 ? "" : "s"} to proceed
+                  </p>
+                )}
+              </div>
+
               {createPackage.error && (
                 <p className="text-sm text-red-500">
                   {createPackage.error instanceof Error
@@ -416,7 +456,11 @@ function RouteComponent() {
             <SheetFooter>
               <Button
                 type="submit"
-                disabled={createPackage.isPending || !packageName.trim()}
+                disabled={
+                  createPackage.isPending ||
+                  !packageName.trim() ||
+                  contractors.length < 2
+                }
               >
                 {createPackage.isPending ? "Creating..." : "Create package"}
               </Button>

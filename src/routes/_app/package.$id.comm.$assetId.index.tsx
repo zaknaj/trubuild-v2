@@ -42,13 +42,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { UploadZone, type UploadedFile } from "@/components/ui/upload-zone"
+import { StepTitle } from "@/components/ui/step-title"
 import {
   BarChart3,
   UserIcon,
   Link as LinkIcon,
   ChevronRight,
-  Upload,
-  Check,
   Settings2,
   AlertTriangle,
   RotateCcw,
@@ -84,15 +84,18 @@ function RouteComponent() {
   )
 
   const [isSetupOpen, setIsSetupOpen] = useState(false)
-  const [uploadedContractors, setUploadedContractors] = useState<Set<string>>(
-    new Set()
-  )
+  const [boqFile, setBoqFile] = useState<UploadedFile[]>([])
+  const [pteFile, setPteFile] = useState<UploadedFile[]>([])
+  const [vendorFiles, setVendorFiles] = useState<
+    Record<string, UploadedFile[]>
+  >({})
 
   const evaluationsList = evaluations as CommercialEvaluation[]
 
   // Get round from Zustand store
   const selectedRoundId = useStore((s) => s.selectedCommRound[assetId])
   const setCommRound = useStore((s) => s.setCommRound)
+  const savedAssetFiles = useStore((s) => s.assetFiles[assetId])
 
   // Get current round
   const currentRound = selectedRoundId
@@ -119,7 +122,9 @@ function RouteComponent() {
       })
       setCommRound(assetId, newEval.id)
       setIsSetupOpen(false)
-      setUploadedContractors(new Set())
+      setBoqFile([])
+      setPteFile([])
+      setVendorFiles({})
     },
     onError: (error) => {
       toast.error(
@@ -128,21 +133,22 @@ function RouteComponent() {
     },
   })
 
-  const toggleContractorUpload = (contractorId: string) => {
-    setUploadedContractors((prev) => {
-      const next = new Set(prev)
-      if (next.has(contractorId)) {
-        next.delete(contractorId)
-      } else {
-        next.add(contractorId)
-      }
-      return next
-    })
+  const handleOpenSetup = () => {
+    // Preload with saved files from asset creation
+    if (savedAssetFiles) {
+      setBoqFile([...savedAssetFiles.boqFile])
+      setPteFile([...savedAssetFiles.pteFile])
+      setVendorFiles({ ...savedAssetFiles.vendorFiles })
+    } else {
+      setBoqFile([])
+      setPteFile([])
+      setVendorFiles({})
+    }
+    setIsSetupOpen(true)
   }
 
-  const handleOpenSetup = () => {
-    setUploadedContractors(new Set())
-    setIsSetupOpen(true)
+  const handleVendorFilesChange = (vendorId: string, files: UploadedFile[]) => {
+    setVendorFiles((prev) => ({ ...prev, [vendorId]: files }))
   }
 
   const hasEvaluations = evaluationsList.length > 0
@@ -192,9 +198,14 @@ function RouteComponent() {
         <CommercialSetupSheet
           open={isSetupOpen}
           onOpenChange={setIsSetupOpen}
+          assetName={assetData.asset.name}
+          boqFile={boqFile}
+          onBoqFileChange={setBoqFile}
+          pteFile={pteFile}
+          onPteFileChange={setPteFile}
           contractors={contractors}
-          uploadedContractors={uploadedContractors}
-          onToggleContractor={toggleContractorUpload}
+          vendorFiles={vendorFiles}
+          onVendorFilesChange={handleVendorFilesChange}
           onRunEvaluation={() => createAndRunEvaluation.mutate()}
           isPending={createAndRunEvaluation.isPending}
         />
@@ -229,73 +240,147 @@ function RouteComponent() {
 function CommercialSetupSheet({
   open,
   onOpenChange,
+  assetName,
+  boqFile,
+  onBoqFileChange,
+  pteFile,
+  onPteFileChange,
   contractors,
-  uploadedContractors,
-  onToggleContractor,
+  vendorFiles,
+  onVendorFilesChange,
   onRunEvaluation,
   isPending,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  assetName: string
+  boqFile: UploadedFile[]
+  onBoqFileChange: (files: UploadedFile[]) => void
+  pteFile: UploadedFile[]
+  onPteFileChange: (files: UploadedFile[]) => void
   contractors: Array<{ id: string; name: string }>
-  uploadedContractors: Set<string>
-  onToggleContractor: (id: string) => void
+  vendorFiles: Record<string, UploadedFile[]>
+  onVendorFilesChange: (vendorId: string, files: UploadedFile[]) => void
   onRunEvaluation: () => void
   isPending: boolean
 }) {
-  const canRunEvaluation = uploadedContractors.size > 0
+  const isBoqDone = boqFile.length > 0
+  const vendorsWithFiles = Object.entries(vendorFiles).filter(
+    ([, files]) => files.length > 0
+  ).length
+  const canRunEvaluation = vendorsWithFiles >= 2
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg">
+      <SheetContent className="sm:max-w-xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Upload Vendor Documents</SheetTitle>
+          <SheetTitle>Start Commercial Evaluation</SheetTitle>
           <SheetDescription>
-            Upload commercial proposals from each contractor to run the
-            evaluation.
+            Upload documents and vendor proposals. At least 2 vendors must have
+            files to proceed.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-          {contractors.map((contractor) => {
-            const isUploaded = uploadedContractors.has(contractor.id)
-            return (
-              <div
-                key={contractor.id}
-                className="flex items-center gap-3 p-4 rounded-lg border bg-card"
-              >
-                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted">
-                  <UserIcon size={20} className="text-muted-foreground" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">{contractor.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {isUploaded ? "Document uploaded" : "No document uploaded"}
-                  </p>
-                </div>
-                <Button
-                  variant={isUploaded ? "outline" : "default"}
-                  size="sm"
-                  onClick={() => onToggleContractor(contractor.id)}
-                >
-                  {isUploaded ? (
-                    <>
-                      <Check className="size-4 mr-1" />
-                      Uploaded
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="size-4 mr-1" />
-                      Upload
-                    </>
-                  )}
-                </Button>
+        <div className="flex-1 p-4 space-y-6">
+          {/* Asset Name (read-only) */}
+          <div className="space-y-2">
+            <Label>Asset Name</Label>
+            <Input value={assetName} disabled className="bg-muted" />
+          </div>
+
+          {/* BOQ File */}
+          <div className="space-y-2">
+            <StepTitle
+              title="Bill Of Quantities (BOQ)"
+              complete={isBoqDone}
+              required
+            />
+            <UploadZone
+              files={boqFile}
+              onFilesChange={onBoqFileChange}
+              accept=".pdf,.xlsx,.xls"
+            />
+          </div>
+
+          {/* PTE File */}
+          <div className="space-y-2">
+            <StepTitle
+              title="Pre-Tender Estimate (PTE)"
+              complete={pteFile.length > 0}
+              description="Optional"
+            />
+            <UploadZone
+              files={pteFile}
+              onFilesChange={onPteFileChange}
+              accept=".pdf,.xlsx,.xls"
+            />
+          </div>
+
+          {/* Vendor Files */}
+          <div className="space-y-3">
+            <StepTitle
+              title={`Vendor Proposals (${vendorsWithFiles}/${contractors.length} vendors have files)`}
+              complete={canRunEvaluation}
+              required
+            />
+
+            {contractors.length === 0 ? (
+              <div className="text-center py-6 border rounded-lg border-dashed">
+                <UserIcon className="size-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  No contractors added to this package yet.
+                </p>
               </div>
-            )
-          })}
+            ) : (
+              <div className="space-y-3">
+                {contractors.map((contractor) => {
+                  const files = vendorFiles[contractor.id] ?? []
+                  const hasFiles = files.length > 0
+
+                  return (
+                    <div
+                      key={contractor.id}
+                      className={cn(
+                        "rounded-lg border p-3 transition-colors",
+                        hasFiles &&
+                          "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center justify-center w-6 h-6 rounded bg-muted">
+                          <UserIcon
+                            size={14}
+                            className="text-muted-foreground"
+                          />
+                        </div>
+                        <span className="text-sm font-medium">
+                          {contractor.name}
+                        </span>
+                      </div>
+                      <UploadZone
+                        files={files}
+                        onFilesChange={(newFiles) =>
+                          onVendorFilesChange(contractor.id, newFiles)
+                        }
+                        multiple
+                        accept=".pdf,.xlsx,.xls,.doc,.docx"
+                        compact
+                      />
+                    </div>
+                  )
+                })}
+
+                {!canRunEvaluation && (
+                  <p className="text-sm text-amber-600 dark:text-amber-500">
+                    At least 2 vendors must have files to run evaluation
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        <SheetFooter>
+        <SheetFooter className="px-4 pb-4">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

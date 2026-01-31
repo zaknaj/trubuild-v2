@@ -44,12 +44,15 @@ export const queryKeys = {
     members: (id: string) => ["package", id, "members"] as const,
     access: (id: string) => ["package", id, "access"] as const,
     contractors: (id: string) => ["package", id, "contractors"] as const,
-    technicalEvaluations: (id: string) => ["package", id, "technical-evaluations"] as const,
-    hasCommercialEvaluation: (id: string) => ["package", id, "has-commercial-evaluation"] as const,
+    technicalEvaluations: (id: string) =>
+      ["package", id, "technical-evaluations"] as const,
+    hasCommercialEvaluation: (id: string) =>
+      ["package", id, "has-commercial-evaluation"] as const,
   },
   asset: {
     detail: (id: string) => ["asset", id, "detail"] as const,
-    commercialEvaluations: (id: string) => ["asset", id, "commercial-evaluations"] as const,
+    commercialEvaluations: (id: string) =>
+      ["asset", id, "commercial-evaluations"] as const,
   },
   org: {
     members: () => ["org", "members"] as const,
@@ -87,7 +90,7 @@ export const orgsQueryOptions = queryOptions({
 export const projectsQueryOptions = queryOptions({
   queryKey: queryKeys.projects(),
   queryFn: () => listProjectsFn(),
-  staleTime: 0, // Always refetch to show latest team/package data
+  staleTime: 30 * 1000, // 30 seconds - balance between freshness and performance
 })
 
 export const archivedProjectsQueryOptions = queryOptions({

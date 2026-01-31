@@ -1,21 +1,16 @@
 import { useState, useEffect } from "react"
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import {
   technicalEvaluationsQueryOptions,
   packageContractorsQueryOptions,
+  packageAccessQueryOptions,
 } from "@/lib/query-options"
 import useStore from "@/lib/store"
+import { BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { ChevronDown, Plus, BarChart3 } from "lucide-react"
 import { TechSetupWizard } from "@/components/TechSetupWizard"
+import { PackageContentHeader } from "@/components/PackageContentHeader"
 
 type TechnicalEvaluation = {
   id: string
@@ -28,6 +23,15 @@ type TechnicalEvaluation = {
 }
 
 export const Route = createFileRoute("/_app/package/$id/tech")({
+  beforeLoad: async ({ params, context }) => {
+    // Check technical access before loading the route
+    const accessData = await context.queryClient.ensureQueryData(
+      packageAccessQueryOptions(params.id)
+    )
+    if (accessData.access !== "full" && accessData.access !== "technical") {
+      throw redirect({ to: "/package/$id", params: { id: params.id } })
+    }
+  },
   loader: ({ params, context }) => {
     context.queryClient.prefetchQuery(
       technicalEvaluationsQueryOptions(params.id)
@@ -36,9 +40,6 @@ export const Route = createFileRoute("/_app/package/$id/tech")({
   },
   component: RouteComponent,
 })
-
-const sidebarLinkClass = "nav-item nav-item-light"
-const sidebarLinkActiveClass = "active"
 
 function RouteComponent() {
   const { id } = Route.useParams()
@@ -111,78 +112,25 @@ function RouteComponent() {
     )
   }
 
+  const rounds = evaluations.map((e) => ({
+    id: e.id,
+    roundName: e.roundName,
+  }))
+
   return (
-    <div className="flex flex-1 overflow-hidden h-full">
-      <aside className="w-72 bg-white pb-4 px-[28px] overflow-auto space-y-6 border-r-[0.5px] border-black/15">
-        {/* Title */}
-        <h2 className="text-[16px] font-semibold text-gradient my-8 w-fit">
-          Technical Evaluation
-        </h2>
-
-        {/* Round dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-between"
-            >
-              {currentRound?.roundName ?? "Select Round"}
-              <ChevronDown className="size-4 ml-1" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {evaluations.map((evaluation) => (
-              <DropdownMenuItem
-                key={evaluation.id}
-                onClick={() => handleRoundSelect(evaluation.id)}
-              >
-                {evaluation.roundName}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setIsSetupWizardOpen(true)}>
-              <Plus className="size-4 mr-2" />
-              New Round
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Nav links */}
-        <div className="flex flex-col gap-px">
-          <Link
-            to="/package/$id/tech"
-            params={{ id }}
-            activeOptions={{ exact: true }}
-            className={sidebarLinkClass}
-            activeProps={{
-              className: `${sidebarLinkClass} ${sidebarLinkActiveClass}`,
-            }}
-          >
-            Summary
-          </Link>
-          <Link
-            to="/package/$id/tech/ptc"
-            params={{ id }}
-            className={sidebarLinkClass}
-            activeProps={{
-              className: `${sidebarLinkClass} ${sidebarLinkActiveClass}`,
-            }}
-          >
-            PTC Insights
-          </Link>
-          <Link
-            to="/package/$id/tech/docs"
-            params={{ id }}
-            className={sidebarLinkClass}
-            activeProps={{
-              className: `${sidebarLinkClass} ${sidebarLinkActiveClass}`,
-            }}
-          >
-            Tender documents
-          </Link>
-        </div>
-      </aside>
+    <div className="flex flex-1 flex-col overflow-hidden h-full">
+      <PackageContentHeader
+        variant="technical"
+        packageId={id}
+        rounds={rounds}
+        currentRound={
+          currentRound
+            ? { id: currentRound.id, roundName: currentRound.roundName }
+            : undefined
+        }
+        onRoundSelect={handleRoundSelect}
+        onNewRound={() => setIsSetupWizardOpen(true)}
+      />
       <div className="flex-1 overflow-auto">
         <Outlet />
       </div>

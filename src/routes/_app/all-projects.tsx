@@ -54,6 +54,10 @@ function RouteComponent() {
   const canCreateProject =
     userRole.role === "owner" || userRole.role === "admin"
 
+  // Only org owners/admins can see award stats (commercial data)
+  // Regular members might have limited access to individual projects
+  const canViewAwardStats = canCreateProject
+
   const createProject = useMutation({
     mutationFn: ({ name, country }: { name: string; country: string }) =>
       createProjectFn({ data: { name, country } }),
@@ -82,7 +86,7 @@ function RouteComponent() {
       <div className="flex-1 overflow-auto">
         <div className="max-w-[600px] mx-auto p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-[16px] font-semibold text-slate-900">
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Projects
             </h2>
             {canCreateProject && (
@@ -120,8 +124,28 @@ function RouteComponent() {
                     </span>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {project.packageCount}{" "}
-                    {project.packageCount === 1 ? "package" : "packages"}
+                    {canViewAwardStats ? (
+                      <>
+                        {project.awardedPackageCount}/{project.packageCount}{" "}
+                        awarded
+                        {project.packageCount > 0 && (
+                          <span className="ml-1">
+                            (
+                            {Math.round(
+                              (project.awardedPackageCount /
+                                project.packageCount) *
+                                100
+                            )}
+                            %)
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {project.packageCount}{" "}
+                        {project.packageCount === 1 ? "package" : "packages"}
+                      </>
+                    )}
                   </span>
                   <ChevronRightIcon
                     size={14}

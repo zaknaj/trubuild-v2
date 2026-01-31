@@ -15,13 +15,11 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppVendorDbRouteImport } from './routes/_app/vendor-db'
 import { Route as AppAllProjectsRouteImport } from './routes/_app/all-projects'
-import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppProjectIdRouteImport } from './routes/_app/project.$id'
 import { Route as AppPackageIdRouteImport } from './routes/_app/package.$id'
 import { Route as AppPackageIdIndexRouteImport } from './routes/_app/package.$id.index'
 import { Route as AppPackageIdTechRouteImport } from './routes/_app/package.$id.tech'
-import { Route as AppPackageIdContractorsRouteImport } from './routes/_app/package.$id.contractors'
 import { Route as AppPackageIdCommRouteImport } from './routes/_app/package.$id.comm'
 import { Route as AppPackageIdTechIndexRouteImport } from './routes/_app/package.$id.tech.index'
 import { Route as AppPackageIdCommIndexRouteImport } from './routes/_app/package.$id.comm.index'
@@ -61,11 +59,6 @@ const AppAllProjectsRoute = AppAllProjectsRouteImport.update({
   path: '/all-projects',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAdminRoute = AppAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AppRoute,
-} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -89,11 +82,6 @@ const AppPackageIdIndexRoute = AppPackageIdIndexRouteImport.update({
 const AppPackageIdTechRoute = AppPackageIdTechRouteImport.update({
   id: '/tech',
   path: '/tech',
-  getParentRoute: () => AppPackageIdRoute,
-} as any)
-const AppPackageIdContractorsRoute = AppPackageIdContractorsRouteImport.update({
-  id: '/contractors',
-  path: '/contractors',
   getParentRoute: () => AppPackageIdRoute,
 } as any)
 const AppPackageIdCommRoute = AppPackageIdCommRouteImport.update({
@@ -148,7 +136,6 @@ const AppPackageIdCommAssetIdDocsRoute =
 export interface FileRoutesByFullPath {
   '/create-org': typeof CreateOrgRoute
   '/login': typeof LoginRoute
-  '/admin': typeof AppAdminRoute
   '/all-projects': typeof AppAllProjectsRoute
   '/vendor-db': typeof AppVendorDbRoute
   '/': typeof AppIndexRoute
@@ -156,7 +143,6 @@ export interface FileRoutesByFullPath {
   '/project/$id': typeof AppProjectIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/package/$id/comm': typeof AppPackageIdCommRouteWithChildren
-  '/package/$id/contractors': typeof AppPackageIdContractorsRoute
   '/package/$id/tech': typeof AppPackageIdTechRouteWithChildren
   '/package/$id/': typeof AppPackageIdIndexRoute
   '/package/$id/comm/$assetId': typeof AppPackageIdCommAssetIdRouteWithChildren
@@ -171,13 +157,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/create-org': typeof CreateOrgRoute
   '/login': typeof LoginRoute
-  '/admin': typeof AppAdminRoute
   '/all-projects': typeof AppAllProjectsRoute
   '/vendor-db': typeof AppVendorDbRoute
   '/': typeof AppIndexRoute
   '/project/$id': typeof AppProjectIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/package/$id/contractors': typeof AppPackageIdContractorsRoute
   '/package/$id': typeof AppPackageIdIndexRoute
   '/package/$id/tech/docs': typeof AppPackageIdTechDocsRoute
   '/package/$id/tech/ptc': typeof AppPackageIdTechPtcRoute
@@ -192,7 +176,6 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/create-org': typeof CreateOrgRoute
   '/login': typeof LoginRoute
-  '/_app/admin': typeof AppAdminRoute
   '/_app/all-projects': typeof AppAllProjectsRoute
   '/_app/vendor-db': typeof AppVendorDbRoute
   '/_app/': typeof AppIndexRoute
@@ -200,7 +183,6 @@ export interface FileRoutesById {
   '/_app/project/$id': typeof AppProjectIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_app/package/$id/comm': typeof AppPackageIdCommRouteWithChildren
-  '/_app/package/$id/contractors': typeof AppPackageIdContractorsRoute
   '/_app/package/$id/tech': typeof AppPackageIdTechRouteWithChildren
   '/_app/package/$id/': typeof AppPackageIdIndexRoute
   '/_app/package/$id/comm/$assetId': typeof AppPackageIdCommAssetIdRouteWithChildren
@@ -217,7 +199,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/create-org'
     | '/login'
-    | '/admin'
     | '/all-projects'
     | '/vendor-db'
     | '/'
@@ -225,7 +206,6 @@ export interface FileRouteTypes {
     | '/project/$id'
     | '/api/auth/$'
     | '/package/$id/comm'
-    | '/package/$id/contractors'
     | '/package/$id/tech'
     | '/package/$id/'
     | '/package/$id/comm/$assetId'
@@ -240,13 +220,11 @@ export interface FileRouteTypes {
   to:
     | '/create-org'
     | '/login'
-    | '/admin'
     | '/all-projects'
     | '/vendor-db'
     | '/'
     | '/project/$id'
     | '/api/auth/$'
-    | '/package/$id/contractors'
     | '/package/$id'
     | '/package/$id/tech/docs'
     | '/package/$id/tech/ptc'
@@ -260,7 +238,6 @@ export interface FileRouteTypes {
     | '/_app'
     | '/create-org'
     | '/login'
-    | '/_app/admin'
     | '/_app/all-projects'
     | '/_app/vendor-db'
     | '/_app/'
@@ -268,7 +245,6 @@ export interface FileRouteTypes {
     | '/_app/project/$id'
     | '/api/auth/$'
     | '/_app/package/$id/comm'
-    | '/_app/package/$id/contractors'
     | '/_app/package/$id/tech'
     | '/_app/package/$id/'
     | '/_app/package/$id/comm/$assetId'
@@ -332,13 +308,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAllProjectsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/admin': {
-      id: '/_app/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AppAdminRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -372,13 +341,6 @@ declare module '@tanstack/react-router' {
       path: '/tech'
       fullPath: '/package/$id/tech'
       preLoaderRoute: typeof AppPackageIdTechRouteImport
-      parentRoute: typeof AppPackageIdRoute
-    }
-    '/_app/package/$id/contractors': {
-      id: '/_app/package/$id/contractors'
-      path: '/contractors'
-      fullPath: '/package/$id/contractors'
-      preLoaderRoute: typeof AppPackageIdContractorsRouteImport
       parentRoute: typeof AppPackageIdRoute
     }
     '/_app/package/$id/comm': {
@@ -495,14 +457,12 @@ const AppPackageIdTechRouteWithChildren =
 
 interface AppPackageIdRouteChildren {
   AppPackageIdCommRoute: typeof AppPackageIdCommRouteWithChildren
-  AppPackageIdContractorsRoute: typeof AppPackageIdContractorsRoute
   AppPackageIdTechRoute: typeof AppPackageIdTechRouteWithChildren
   AppPackageIdIndexRoute: typeof AppPackageIdIndexRoute
 }
 
 const AppPackageIdRouteChildren: AppPackageIdRouteChildren = {
   AppPackageIdCommRoute: AppPackageIdCommRouteWithChildren,
-  AppPackageIdContractorsRoute: AppPackageIdContractorsRoute,
   AppPackageIdTechRoute: AppPackageIdTechRouteWithChildren,
   AppPackageIdIndexRoute: AppPackageIdIndexRoute,
 }
@@ -512,7 +472,6 @@ const AppPackageIdRouteWithChildren = AppPackageIdRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
-  AppAdminRoute: typeof AppAdminRoute
   AppAllProjectsRoute: typeof AppAllProjectsRoute
   AppVendorDbRoute: typeof AppVendorDbRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -521,7 +480,6 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAdminRoute: AppAdminRoute,
   AppAllProjectsRoute: AppAllProjectsRoute,
   AppVendorDbRoute: AppVendorDbRoute,
   AppIndexRoute: AppIndexRoute,

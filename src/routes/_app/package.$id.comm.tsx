@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react"
 import {
   createFileRoute,
-  Link,
   Outlet,
   useMatches,
   useNavigate,
+  redirect,
 } from "@tanstack/react-router"
 import {
   useSuspenseQuery,
@@ -15,6 +15,7 @@ import {
   packageDetailQueryOptions,
   packageContractorsQueryOptions,
   commercialEvaluationsQueryOptions,
+  packageAccessQueryOptions,
 } from "@/lib/query-options"
 import {
   createAssetFn,
@@ -34,15 +35,12 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Plus, Upload, Check, ChevronDown, UserIcon } from "lucide-react"
+import { UploadZone, type UploadedFile } from "@/components/ui/upload-zone"
+import { StepTitle } from "@/components/ui/step-title"
+import { UserIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { PackageContentHeader } from "@/components/PackageContentHeader"
 
 type CommercialEvaluation = {
   id: string
@@ -55,14 +53,20 @@ type CommercialEvaluation = {
 }
 
 export const Route = createFileRoute("/_app/package/$id/comm")({
+  beforeLoad: async ({ params, context }) => {
+    // Check commercial access before loading the route
+    const accessData = await context.queryClient.ensureQueryData(
+      packageAccessQueryOptions(params.id)
+    )
+    if (accessData.access !== "full" && accessData.access !== "commercial") {
+      throw redirect({ to: "/package/$id", params: { id: params.id } })
+    }
+  },
   loader: ({ params, context }) => {
     context.queryClient.prefetchQuery(packageContractorsQueryOptions(params.id))
   },
   component: RouteComponent,
 })
-
-const sidebarLinkClass = "nav-item nav-item-light"
-const sidebarLinkActiveClass = "active"
 
 function RouteComponent() {
   const { id } = Route.useParams()
@@ -86,17 +90,39 @@ function RouteComponent() {
     ? assets.find((a) => a.id === currentAssetId)
     : null
 
-  // Create asset sheet state
-  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  // Create asset sheet state (from store for cross-component access)
+  const isSheetOpen = useStore((s) => s.createAssetSheetOpen)
+  const setIsSheetOpen = useStore((s) => s.setCreateAssetSheetOpen)
+
+  // Asset creation form state
   const [assetName, setAssetName] = useState("")
-  const [boqUploaded, setBoqUploaded] = useState(false)
-  const [pteUploaded, setPteUploaded] = useState(false)
+  const [boqFile, setBoqFile] = useState<UploadedFile[]>([])
+  const [pteFile, setPteFile] = useState<UploadedFile[]>([])
+  const [vendorFiles, setVendorFiles] = useState<
+    Record<string, UploadedFile[]>
+  >({})
+
+  // Commercial setup sheet state (for new round)
+  const [isSetupOpen, setIsSetupOpen] = useState(false)
+  const [evalBoqFile, setEvalBoqFile] = useState<UploadedFile[]>([])
+  const [evalPteFile, setEvalPteFile] = useState<UploadedFile[]>([])
+  const [evalVendorFiles, setEvalVendorFiles] = useState<
+    Record<string, UploadedFile[]>
+  >({})
+
+  const setAssetFiles = useStore((s) => s.setAssetFiles)
 
   const createAsset = useMutation({
     mutationFn: (name: string) =>
       createAssetFn({ data: { packageId: id, name } }),
     onSuccess: (newAsset) => {
       toast.success("Asset created successfully")
+      // Save the files to the store before resetting
+      setAssetFiles(newAsset.id, {
+        boqFile: [...boqFile],
+        pteFile: [...pteFile],
+        vendorFiles: { ...vendorFiles },
+      })
       queryClient.invalidateQueries({
         queryKey: packageDetailQueryOptions(id).queryKey,
       })
@@ -116,8 +142,20 @@ function RouteComponent() {
 
   const resetForm = () => {
     setAssetName("")
-    setBoqUploaded(false)
-    setPteUploaded(false)
+    setBoqFile([])
+    setPteFile([])
+    setVendorFiles({})
+  }
+
+  // Reset form when sheet opens
+  useEffect(() => {
+    if (isSheetOpen) {
+      resetForm()
+    }
+  }, [isSheetOpen])
+
+  const handleVendorFilesChange = (vendorId: string, files: UploadedFile[]) => {
+    setVendorFiles((prev) => ({ ...prev, [vendorId]: files }))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -127,51 +165,72 @@ function RouteComponent() {
       toast.error("Asset name is required")
       return
     }
-    if (!boqUploaded) {
+    if (boqFile.length === 0) {
       toast.error("BOQ file is required")
       return
     }
     createAsset.mutate(trimmedName)
   }
 
-  // Determine which sidebar to show based on whether we're viewing an asset
+  // Validation
+  const isBoqDone = boqFile.length > 0
+  const vendorsWithFiles = Object.entries(vendorFiles).filter(
+    ([, files]) => files.length > 0
+  ).length
+  const canCreate = assetName.trim() && isBoqDone
+
+  // Determine which view to show based on whether we're viewing an asset
   const isInAssetView = !!currentAssetId
 
+  // For asset view, we need evaluations data
+  if (isInAssetView && currentAsset) {
+    return (
+      <AssetView
+        packageId={id}
+        assetId={currentAssetId}
+        assetName={currentAsset.name}
+        contractors={contractors}
+        isSetupOpen={isSetupOpen}
+        setIsSetupOpen={setIsSetupOpen}
+        evalBoqFile={evalBoqFile}
+        setEvalBoqFile={setEvalBoqFile}
+        evalPteFile={evalPteFile}
+        setEvalPteFile={setEvalPteFile}
+        evalVendorFiles={evalVendorFiles}
+        setEvalVendorFiles={setEvalVendorFiles}
+        // Pass saved files from asset creation for preloading
+        savedBoqFile={boqFile}
+        savedPteFile={pteFile}
+        savedVendorFiles={vendorFiles}
+      />
+    )
+  }
+
+  // Package summary view
   return (
-    <div className="flex flex-1 overflow-hidden h-full">
-      <aside className="w-72 bg-white pb-4 px-[28px] overflow-auto space-y-6 border-r-[0.5px] border-black/15">
-        {isInAssetView && currentAsset ? (
-          // Asset view sidebar
-          <AssetSidebar
-            packageId={id}
-            assetId={currentAssetId}
-            assetName={currentAsset.name}
-            contractors={contractors}
-          />
-        ) : (
-          // Package summary sidebar
-          <PackageSidebar
-            packageId={id}
-            assets={assets}
-            onNewAsset={() => setIsSheetOpen(true)}
-          />
-        )}
-      </aside>
+    <div className="flex flex-1 flex-col overflow-hidden h-full">
+      <PackageContentHeader variant="commercial-summary" />
       <div className="flex-1 overflow-auto">
         <Outlet />
       </div>
 
+      {/* Create Asset Sheet */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Create New Asset</SheetTitle>
             <SheetDescription>
-              Add a new asset to this package with BOQ and optional PTE files.
+              Add a new asset to this package with BOQ, optional PTE, and vendor
+              files.
             </SheetDescription>
           </SheetHeader>
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-4">
+            {/* Asset Name */}
             <div className="space-y-2">
-              <Label htmlFor="asset-name">Asset Name</Label>
+              <Label htmlFor="asset-name">
+                Asset Name <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="asset-name"
                 placeholder="e.g. HVAC System"
@@ -181,53 +240,93 @@ function RouteComponent() {
               />
             </div>
 
+            {/* BOQ File */}
             <div className="space-y-2">
-              <Label>BOQ File (Required)</Label>
-              <Button
-                type="button"
-                variant={boqUploaded ? "outline" : "default"}
-                className="w-full gap-2"
-                onClick={() => setBoqUploaded(!boqUploaded)}
-                disabled={createAsset.isPending}
-              >
-                {boqUploaded ? (
-                  <>
-                    <Check className="size-4" />
-                    BOQ Uploaded
-                  </>
-                ) : (
-                  <>
-                    <Upload className="size-4" />
-                    Upload BOQ
-                  </>
-                )}
-              </Button>
+              <StepTitle
+                title="Bill Of Quantities (BOQ)"
+                complete={isBoqDone}
+                required
+              />
+              <UploadZone
+                files={boqFile}
+                onFilesChange={setBoqFile}
+                accept=".pdf,.xlsx,.xls"
+              />
             </div>
 
+            {/* PTE File */}
             <div className="space-y-2">
-              <Label>PTE File (Optional)</Label>
-              <Button
-                type="button"
-                variant={pteUploaded ? "outline" : "secondary"}
-                className="w-full gap-2"
-                onClick={() => setPteUploaded(!pteUploaded)}
-                disabled={createAsset.isPending}
-              >
-                {pteUploaded ? (
-                  <>
-                    <Check className="size-4" />
-                    PTE Uploaded
-                  </>
-                ) : (
-                  <>
-                    <Upload className="size-4" />
-                    Upload PTE
-                  </>
-                )}
-              </Button>
+              <StepTitle
+                title="Pre-Tender Estimate (PTE)"
+                complete={pteFile.length > 0}
+                description="Optional"
+              />
+              <UploadZone
+                files={pteFile}
+                onFilesChange={setPteFile}
+                accept=".pdf,.xlsx,.xls"
+              />
+            </div>
+
+            {/* Vendor Files */}
+            <div className="space-y-3">
+              <StepTitle
+                title={`Vendor Files (${vendorsWithFiles}/${contractors.length} vendors)`}
+                complete={vendorsWithFiles > 0}
+                description="Optional - can be added when running evaluation"
+              />
+
+              {contractors.length === 0 ? (
+                <div className="text-center py-6 border rounded-lg border-dashed">
+                  <UserIcon className="size-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    No contractors added to this package yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {contractors.map((contractor) => {
+                    const files = vendorFiles[contractor.id] ?? []
+                    const hasFiles = files.length > 0
+
+                    return (
+                      <div
+                        key={contractor.id}
+                        className={cn(
+                          "rounded-lg border p-3 transition-colors",
+                          hasFiles &&
+                            "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center justify-center w-6 h-6 rounded bg-muted">
+                            <UserIcon
+                              size={14}
+                              className="text-muted-foreground"
+                            />
+                          </div>
+                          <span className="text-sm font-medium">
+                            {contractor.name}
+                          </span>
+                        </div>
+                        <UploadZone
+                          files={files}
+                          onFilesChange={(newFiles) =>
+                            handleVendorFilesChange(contractor.id, newFiles)
+                          }
+                          multiple
+                          accept=".pdf,.xlsx,.xls,.doc,.docx"
+                          compact
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </form>
-          <SheetFooter>
+
+          <SheetFooter className="px-4 pb-4">
             <Button
               variant="outline"
               onClick={() => {
@@ -240,9 +339,7 @@ function RouteComponent() {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={
-                createAsset.isPending || !assetName.trim() || !boqUploaded
-              }
+              disabled={createAsset.isPending || !canCreate}
             >
               {createAsset.isPending ? "Creating..." : "Create Asset"}
             </Button>
@@ -254,81 +351,43 @@ function RouteComponent() {
 }
 
 // ============================================================================
-// Package Summary Sidebar
+// Asset View Component
 // ============================================================================
 
-function PackageSidebar({
-  packageId,
-  assets,
-  onNewAsset,
-}: {
-  packageId: string
-  assets: Array<{ id: string; name: string }>
-  onNewAsset: () => void
-}) {
-  return (
-    <>
-      {/* Title */}
-      <h2 className="text-[16px] font-semibold text-gradient my-8 w-fit">
-        Commercial Evaluation
-      </h2>
-
-      {/* Nav links */}
-      <div className="flex flex-col gap-px">
-        <Link
-          to="/package/$id/comm"
-          params={{ id: packageId }}
-          activeOptions={{ exact: true }}
-          className={sidebarLinkClass}
-          activeProps={{
-            className: `${sidebarLinkClass} ${sidebarLinkActiveClass}`,
-          }}
-        >
-          Package summary
-        </Link>
-
-        {assets.map((asset) => (
-          <Link
-            key={asset.id}
-            to="/package/$id/comm/$assetId"
-            params={{ id: packageId, assetId: asset.id }}
-            className={sidebarLinkClass}
-            activeProps={{
-              className: `${sidebarLinkClass} ${sidebarLinkActiveClass}`,
-            }}
-          >
-            {asset.name}
-          </Link>
-        ))}
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2 mt-2"
-          onClick={onNewAsset}
-        >
-          <Plus className="size-4" />
-          New Asset
-        </Button>
-      </div>
-    </>
-  )
-}
-
-// ============================================================================
-// Asset View Sidebar
-// ============================================================================
-
-function AssetSidebar({
+function AssetView({
   packageId,
   assetId,
   assetName,
   contractors,
+  isSetupOpen,
+  setIsSetupOpen,
+  evalBoqFile,
+  setEvalBoqFile,
+  evalPteFile,
+  setEvalPteFile,
+  evalVendorFiles,
+  setEvalVendorFiles,
+  savedBoqFile,
+  savedPteFile,
+  savedVendorFiles,
 }: {
   packageId: string
   assetId: string
   assetName: string
   contractors: Array<{ id: string; name: string }>
+  isSetupOpen: boolean
+  setIsSetupOpen: (open: boolean) => void
+  evalBoqFile: UploadedFile[]
+  setEvalBoqFile: React.Dispatch<React.SetStateAction<UploadedFile[]>>
+  evalPteFile: UploadedFile[]
+  setEvalPteFile: React.Dispatch<React.SetStateAction<UploadedFile[]>>
+  evalVendorFiles: Record<string, UploadedFile[]>
+  setEvalVendorFiles: React.Dispatch<
+    React.SetStateAction<Record<string, UploadedFile[]>>
+  >
+  savedBoqFile: UploadedFile[]
+  savedPteFile: UploadedFile[]
+  savedVendorFiles: Record<string, UploadedFile[]>
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -342,12 +401,7 @@ function AssetSidebar({
   // Get/set round from Zustand store
   const selectedRoundId = useStore((s) => s.selectedCommRound[assetId])
   const setCommRound = useStore((s) => s.setCommRound)
-
-  // State for setup sheet
-  const [isSetupOpen, setIsSetupOpen] = useState(false)
-  const [uploadedContractors, setUploadedContractors] = useState<Set<string>>(
-    new Set()
-  )
+  const storedAssetFiles = useStore((s) => s.assetFiles[assetId])
 
   // Auto-select latest round when no round is stored or stored round is invalid
   useEffect(() => {
@@ -358,23 +412,19 @@ function AssetSidebar({
         setCommRound(assetId, evaluationsList[0].id)
       }
     }
-  }, [evaluationsList, selectedRoundId, setCommRound, assetId])
+  }, [evaluationsList, selectedRoundId, assetId, setCommRound])
 
   // Get current round
   const currentRound = selectedRoundId
     ? evaluationsList.find((e) => e.id === selectedRoundId)
     : evaluationsList[0]
 
-  const hasEvaluations = evaluationsList.length > 0
-
   // Create new round with data
   const createAndRunEvaluation = useMutation({
     mutationFn: async () => {
-      // First create the evaluation
       const newEval = (await createCommercialEvaluationFn({
         data: { assetId },
       })) as CommercialEvaluation
-      // Then run it to populate with data
       const result = await runCommercialEvaluationFn({
         data: { evaluationId: newEval.id },
       })
@@ -387,8 +437,7 @@ function AssetSidebar({
       })
       setCommRound(assetId, newEval.id)
       setIsSetupOpen(false)
-      setUploadedContractors(new Set())
-      // Navigate to the asset summary page
+      setEvalVendorFiles({})
       navigate({
         to: "/package/$id/comm/$assetId",
         params: { id: packageId, assetId },
@@ -405,112 +454,65 @@ function AssetSidebar({
     setCommRound(assetId, roundId)
   }
 
-  const toggleContractorUpload = (contractorId: string) => {
-    setUploadedContractors((prev) => {
-      const next = new Set(prev)
-      if (next.has(contractorId)) {
-        next.delete(contractorId)
-      } else {
-        next.add(contractorId)
-      }
-      return next
-    })
-  }
-
   const handleOpenSetup = () => {
-    setUploadedContractors(new Set())
+    // Preload with saved files from store (persisted from asset creation)
+    if (storedAssetFiles) {
+      setEvalBoqFile([...storedAssetFiles.boqFile])
+      setEvalPteFile([...storedAssetFiles.pteFile])
+      setEvalVendorFiles({ ...storedAssetFiles.vendorFiles })
+    } else {
+      setEvalBoqFile([...savedBoqFile])
+      setEvalPteFile([...savedPteFile])
+      setEvalVendorFiles({ ...savedVendorFiles })
+    }
     setIsSetupOpen(true)
   }
 
+  const handleVendorFilesChange = (vendorId: string, files: UploadedFile[]) => {
+    setEvalVendorFiles((prev) => ({ ...prev, [vendorId]: files }))
+  }
+
+  const rounds = evaluationsList.map((e) => ({
+    id: e.id,
+    roundName: e.roundName,
+  }))
+
   return (
-    <>
-      {/* Asset name title */}
-      <h2
-        className="text-[16px] font-semibold text-gradient my-8 w-fit max-w-full truncate"
-        title={assetName}
-      >
-        {assetName}
-      </h2>
-
-      {/* Round dropdown - only show if there are evaluations */}
-      {hasEvaluations && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-between"
-            >
-              {currentRound?.roundName ?? "Select Round"}
-              <ChevronDown className="size-4 ml-1" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {evaluationsList.map((evaluation) => (
-              <DropdownMenuItem
-                key={evaluation.id}
-                onClick={() => handleRoundSelect(evaluation.id)}
-              >
-                {evaluation.roundName}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleOpenSetup}>
-              <Plus className="size-4 mr-2" />
-              New Round
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-
-      {/* Nav links */}
-      <div className="flex flex-col gap-px">
-        <Link
-          to="/package/$id/comm/$assetId"
-          params={{ id: packageId, assetId }}
-          activeOptions={{ exact: true }}
-          className={sidebarLinkClass}
-          activeProps={{
-            className: `${sidebarLinkClass} ${sidebarLinkActiveClass}`,
-          }}
-        >
-          Asset summary
-        </Link>
-
-        <Link
-          to="/package/$id/comm/$assetId/ptc"
-          params={{ id: packageId, assetId }}
-          className={sidebarLinkClass}
-          activeProps={{
-            className: `${sidebarLinkClass} ${sidebarLinkActiveClass}`,
-          }}
-        >
-          PTC Insights
-        </Link>
-
-        <Link
-          to="/package/$id/comm/$assetId/docs"
-          params={{ id: packageId, assetId }}
-          className={sidebarLinkClass}
-          activeProps={{
-            className: `${sidebarLinkClass} ${sidebarLinkActiveClass}`,
-          }}
-        >
-          Documents
-        </Link>
+    <div className="flex flex-1 flex-col overflow-hidden h-full">
+      <PackageContentHeader
+        variant="asset"
+        packageId={packageId}
+        assetId={assetId}
+        assetName={assetName}
+        rounds={rounds}
+        currentRound={
+          currentRound
+            ? { id: currentRound.id, roundName: currentRound.roundName }
+            : undefined
+        }
+        onRoundSelect={handleRoundSelect}
+        onNewRound={handleOpenSetup}
+      />
+      <div className="flex-1 overflow-auto">
+        <Outlet />
       </div>
 
       {/* Commercial Setup Sheet */}
       <CommercialSetupSheet
         open={isSetupOpen}
         onOpenChange={setIsSetupOpen}
+        assetName={assetName}
+        boqFile={evalBoqFile}
+        onBoqFileChange={setEvalBoqFile}
+        pteFile={evalPteFile}
+        onPteFileChange={setEvalPteFile}
         contractors={contractors}
-        uploadedContractors={uploadedContractors}
-        onToggleContractor={toggleContractorUpload}
+        vendorFiles={evalVendorFiles}
+        onVendorFilesChange={handleVendorFilesChange}
         onRunEvaluation={() => createAndRunEvaluation.mutate()}
         isPending={createAndRunEvaluation.isPending}
       />
-    </>
+    </div>
   )
 }
 
@@ -521,73 +523,147 @@ function AssetSidebar({
 function CommercialSetupSheet({
   open,
   onOpenChange,
+  assetName,
+  boqFile,
+  onBoqFileChange,
+  pteFile,
+  onPteFileChange,
   contractors,
-  uploadedContractors,
-  onToggleContractor,
+  vendorFiles,
+  onVendorFilesChange,
   onRunEvaluation,
   isPending,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  assetName: string
+  boqFile: UploadedFile[]
+  onBoqFileChange: (files: UploadedFile[]) => void
+  pteFile: UploadedFile[]
+  onPteFileChange: (files: UploadedFile[]) => void
   contractors: Array<{ id: string; name: string }>
-  uploadedContractors: Set<string>
-  onToggleContractor: (id: string) => void
+  vendorFiles: Record<string, UploadedFile[]>
+  onVendorFilesChange: (vendorId: string, files: UploadedFile[]) => void
   onRunEvaluation: () => void
   isPending: boolean
 }) {
-  const canRunEvaluation = uploadedContractors.size > 0
+  const isBoqDone = boqFile.length > 0
+  const vendorsWithFiles = Object.entries(vendorFiles).filter(
+    ([, files]) => files.length > 0
+  ).length
+  const canRunEvaluation = vendorsWithFiles >= 2
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg">
+      <SheetContent className="sm:max-w-xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Upload Vendor Documents</SheetTitle>
+          <SheetTitle>Run Commercial Evaluation</SheetTitle>
           <SheetDescription>
-            Upload commercial proposals from each contractor to run the
-            evaluation.
+            Review documents and upload vendor proposals. At least 2 vendors
+            must have files to proceed.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-          {contractors.map((contractor) => {
-            const isUploaded = uploadedContractors.has(contractor.id)
-            return (
-              <div
-                key={contractor.id}
-                className="flex items-center gap-3 p-4 rounded-lg border bg-card"
-              >
-                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted">
-                  <UserIcon size={20} className="text-muted-foreground" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">{contractor.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {isUploaded ? "Document uploaded" : "No document uploaded"}
-                  </p>
-                </div>
-                <Button
-                  variant={isUploaded ? "outline" : "default"}
-                  size="sm"
-                  onClick={() => onToggleContractor(contractor.id)}
-                >
-                  {isUploaded ? (
-                    <>
-                      <Check className="size-4 mr-1" />
-                      Uploaded
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="size-4 mr-1" />
-                      Upload
-                    </>
-                  )}
-                </Button>
+        <div className="flex-1 p-4 space-y-6">
+          {/* Asset Name (read-only) */}
+          <div className="space-y-2">
+            <Label>Asset Name</Label>
+            <Input value={assetName} disabled className="bg-muted" />
+          </div>
+
+          {/* BOQ File */}
+          <div className="space-y-2">
+            <StepTitle
+              title="Bill Of Quantities (BOQ)"
+              complete={isBoqDone}
+              required
+            />
+            <UploadZone
+              files={boqFile}
+              onFilesChange={onBoqFileChange}
+              accept=".pdf,.xlsx,.xls"
+            />
+          </div>
+
+          {/* PTE File */}
+          <div className="space-y-2">
+            <StepTitle
+              title="Pre-Tender Estimate (PTE)"
+              complete={pteFile.length > 0}
+              description="Optional"
+            />
+            <UploadZone
+              files={pteFile}
+              onFilesChange={onPteFileChange}
+              accept=".pdf,.xlsx,.xls"
+            />
+          </div>
+
+          {/* Vendor Files */}
+          <div className="space-y-3">
+            <StepTitle
+              title={`Vendor Proposals (${vendorsWithFiles}/${contractors.length} vendors have files)`}
+              complete={canRunEvaluation}
+              required
+            />
+
+            {contractors.length === 0 ? (
+              <div className="text-center py-6 border rounded-lg border-dashed">
+                <UserIcon className="size-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  No contractors added to this package yet.
+                </p>
               </div>
-            )
-          })}
+            ) : (
+              <div className="space-y-3">
+                {contractors.map((contractor) => {
+                  const files = vendorFiles[contractor.id] ?? []
+                  const hasFiles = files.length > 0
+
+                  return (
+                    <div
+                      key={contractor.id}
+                      className={cn(
+                        "rounded-lg border p-3 transition-colors",
+                        hasFiles &&
+                          "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center justify-center w-6 h-6 rounded bg-muted">
+                          <UserIcon
+                            size={14}
+                            className="text-muted-foreground"
+                          />
+                        </div>
+                        <span className="text-sm font-medium">
+                          {contractor.name}
+                        </span>
+                      </div>
+                      <UploadZone
+                        files={files}
+                        onFilesChange={(newFiles) =>
+                          onVendorFilesChange(contractor.id, newFiles)
+                        }
+                        multiple
+                        accept=".pdf,.xlsx,.xls,.doc,.docx"
+                        compact
+                      />
+                    </div>
+                  )
+                })}
+
+                {!canRunEvaluation && (
+                  <p className="text-sm text-amber-600 dark:text-amber-500">
+                    At least 2 vendors must have files to run evaluation
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        <SheetFooter>
+        <SheetFooter className="px-4 pb-4">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
