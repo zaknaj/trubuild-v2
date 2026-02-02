@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap");
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 :root {
@@ -106,14 +107,14 @@
   }
 
   /* Disable all animations and transitions for instant, snappy UI */
-  *,
+  /* *,
   *::before,
   *::after {
     animation-duration: 0s !important;
     animation-delay: 0s !important;
     transition-duration: 0s !important;
     transition-delay: 0s !important;
-  }
+  } */
 
   html {
     height: 100%;
@@ -151,8 +152,20 @@
   background: linear-gradient(180deg, #161661 0%, #2439a2 100%);
 }
 
-.login-background {
-  background: radial-gradient(100% 100% at 50% 0%, #77588d 0%, #2e346b 100%);
+.button-gradient {
+  background: radial-gradient(
+    100% 100% at 50% 0%,
+    #ffb3b6 14.9%,
+    #eb76a9 39.24%,
+    #7830e2 100%
+  );
+}
+
+.content-shadow {
+  border: 0.5px solid rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 0 12px 0 rgba(0, 0, 0, 0.07),
+    0 0 40px 0 rgba(0, 0, 0, 0.07);
 }
 
 /* =============================================================================

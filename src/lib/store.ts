@@ -8,7 +8,7 @@ const SIDEBAR_DEFAULT_WIDTH = 300
 interface UploadedFile {
   id: string
   name: string
-  fakeUrl: string
+  key: string // S3 object key
 }
 
 interface AssetFiles {

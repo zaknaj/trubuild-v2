@@ -7,12 +7,14 @@ import {
   projectMember,
   packageMember,
   invitation,
+  organization,
 } from "@/db/schema"
 import { createServerFn } from "@tanstack/react-start"
 import { getRequestHeaders } from "@tanstack/react-start/server"
-import { and, eq, isNull } from "drizzle-orm"
+import { and, eq, isNull, isNotNull } from "drizzle-orm"
 import { z } from "zod"
 import { getAuthContext, requireOrgOwner } from "../auth/auth-guards"
+import { getWorkosAuthUrl } from "@/lib/workos"
 
 // ============================================================================
 // Session & Organization
@@ -287,4 +289,55 @@ export const updateProfileFn = createServerFn({ method: "POST" })
     })
 
     return { success: true }
+  })
+
+// ============================================================================
+// SSO (WorkOS)
+// ============================================================================
+
+/** Check if an email domain has WorkOS SSO configured */
+export const checkSSOForEmailFn = createServerFn()
+  .inputValidator(z.object({ email: z.string().email() }))
+  .handler(async ({ data }) => {
+    // Only check SSO in enterprise mode
+    if (process.env.AUTH_MODE !== "enterprise") {
+      return { hasSSO: false as const }
+    }
+
+    const domain = data.email.split("@")[1]
+
+    // Find an organization with a WorkOS connection that uses this domain
+    // For now, we store the domain in the org's metadata or match by slug
+    // In a more sophisticated setup, you'd have a separate domain mapping table
+    const [org] = await db
+      .select({
+        workosConnectionId: organization.workosConnectionId,
+        id: organization.id,
+      })
+      .from(organization)
+      .where(isNotNull(organization.workosConnectionId))
+      .limit(1)
+
+    // TODO: In production, match domain to organization more precisely
+    // For now, if any org has WorkOS configured and we're in enterprise mode,
+    // we'll use it. You could also store allowed domains in org metadata.
+
+    if (org?.workosConnectionId) {
+      return {
+        hasSSO: true as const,
+        connectionId: org.workosConnectionId,
+        organizationId: org.id,
+      }
+    }
+
+    return { hasSSO: false as const }
+  })
+
+/** Get WorkOS authorization URL for SSO redirect */
+export const getWorkosAuthUrlFn = createServerFn()
+  .inputValidator(z.object({ connectionId: z.string() }))
+  .handler(async ({ data }) => {
+    const redirectUri = `${process.env.BETTER_AUTH_URL}/api/workos/callback`
+    const url = getWorkosAuthUrl(data.connectionId, redirectUri)
+    return { url }
   })

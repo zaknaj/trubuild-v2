@@ -283,3 +283,62 @@ export const commercialEvaluationRelations = relations(
     }),
   })
 )
+
+// Document - uploaded files stored in S3
+export const document = pgTable(
+  "document",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(), // Original filename
+    key: text("key").notNull().unique(), // S3 object key
+    contentType: text("content_type"),
+    size: integer("size"),
+
+    // Polymorphic: belongs to package OR asset (one should be set)
+    packageId: uuid("package_id").references(() => pkg.id, {
+      onDelete: "cascade",
+    }),
+    assetId: uuid("asset_id").references(() => asset.id, {
+      onDelete: "cascade",
+    }),
+
+    // Document categorization
+    category: text("category").$type<
+      "rfp" | "boq" | "pte" | "vendor_proposal" | "criteria" | "other"
+    >(),
+    // For vendor proposals, link to the contractor
+    contractorId: uuid("contractor_id").references(() => packageContractor.id, {
+      onDelete: "set null",
+    }),
+
+    uploadedBy: text("uploaded_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    index("document_packageId_idx").on(table.packageId),
+    index("document_assetId_idx").on(table.assetId),
+    index("document_key_idx").on(table.key),
+    index("document_contractorId_idx").on(table.contractorId),
+  ]
+)
+
+export const documentRelations = relations(document, ({ one }) => ({
+  package: one(pkg, {
+    fields: [document.packageId],
+    references: [pkg.id],
+  }),
+  asset: one(asset, {
+    fields: [document.assetId],
+    references: [asset.id],
+  }),
+  contractor: one(packageContractor, {
+    fields: [document.contractorId],
+    references: [packageContractor.id],
+  }),
+  uploader: one(user, {
+    fields: [document.uploadedBy],
+    references: [user.id],
+  }),
+}))

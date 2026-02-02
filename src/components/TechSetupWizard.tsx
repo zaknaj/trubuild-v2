@@ -254,6 +254,7 @@ export function TechSetupWizard({
   // Step state
   const [step, setStep] = useState(1)
   const [isExtracting, setIsExtracting] = useState(false)
+  const [uploadingCount, setUploadingCount] = useState(0)
 
   // Step 1 state
   const [rfpFile, setRfpFile] = useState<UploadedFile[]>([])
@@ -273,6 +274,7 @@ export function TechSetupWizard({
     if (open) {
       setStep(1)
       setIsExtracting(false)
+      setUploadingCount(0)
       setRfpFile([])
       setCriteriaMode(null)
       setCriteriaFile([])
@@ -312,8 +314,10 @@ export function TechSetupWizard({
     ([, files]) => files.length > 0
   ).length
   const isVendorsDone = vendorsWithFiles >= 2
+  const isUploading = uploadingCount > 0
 
-  const canProceedStep1 = isRfpDone && isCriteriaDone && isVendorsDone
+  const canProceedStep1 =
+    isRfpDone && isCriteriaDone && isVendorsDone && !isUploading
 
   // Step 2 validation
   const totalWeight = criteria.reduce(
@@ -376,6 +380,10 @@ export function TechSetupWizard({
     setVendorFiles((prev) => ({ ...prev, [vendorId]: files }))
   }
 
+  const handleUploadingChange = (isUploading: boolean) => {
+    setUploadingCount((prev) => prev + (isUploading ? 1 : -1))
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
@@ -410,6 +418,7 @@ export function TechSetupWizard({
             <div className="flex-1 overflow-y-auto py-4">
               {step === 1 && (
                 <Step1Documents
+                  packageId={packageId}
                   contractors={contractors}
                   rfpFile={rfpFile}
                   onRfpFileChange={setRfpFile}
@@ -420,6 +429,7 @@ export function TechSetupWizard({
                   vendorFiles={vendorFiles}
                   onVendorFilesChange={handleVendorFilesChange}
                   vendorsWithFiles={vendorsWithFiles}
+                  onUploadingChange={handleUploadingChange}
                 />
               )}
               {step === 2 && (
@@ -442,7 +452,7 @@ export function TechSetupWizard({
                   onClick={handleNext}
                   disabled={!canProceedStep1 || isExtracting}
                 >
-                  Next
+                  {isUploading ? "Uploading..." : "Next"}
                 </Button>
               )}
               {step === 2 && (
@@ -470,6 +480,7 @@ export function TechSetupWizard({
 // ============================================================================
 
 function Step1Documents({
+  packageId,
   contractors,
   rfpFile,
   onRfpFileChange,
@@ -480,7 +491,9 @@ function Step1Documents({
   vendorFiles,
   onVendorFilesChange,
   vendorsWithFiles,
+  onUploadingChange,
 }: {
+  packageId: string
   contractors: Array<{ id: string; name: string }>
   rfpFile: UploadedFile[]
   onRfpFileChange: (files: UploadedFile[]) => void
@@ -491,6 +504,7 @@ function Step1Documents({
   vendorFiles: Record<string, UploadedFile[]>
   onVendorFilesChange: (vendorId: string, files: UploadedFile[]) => void
   vendorsWithFiles: number
+  onUploadingChange: (isUploading: boolean) => void
 }) {
   const isRfpDone = rfpFile.length > 0
   const isCriteriaDone =
@@ -509,6 +523,9 @@ function Step1Documents({
         <UploadZone
           files={rfpFile}
           onFilesChange={onRfpFileChange}
+          packageId={packageId}
+          category="rfp"
+          onUploadingChange={onUploadingChange}
           accept=".pdf,.doc,.docx"
         />
       </div>
@@ -566,6 +583,9 @@ function Step1Documents({
                 <UploadZone
                   files={criteriaFile}
                   onFilesChange={onCriteriaFileChange}
+                  packageId={packageId}
+                  category="criteria"
+                  onUploadingChange={onUploadingChange}
                   accept=".pdf,.doc,.docx,.xlsx"
                   compact
                 />
@@ -642,6 +662,10 @@ function Step1Documents({
                     onFilesChange={(newFiles) =>
                       onVendorFilesChange(contractor.id, newFiles)
                     }
+                    packageId={packageId}
+                    category="vendor_proposal"
+                    contractorId={contractor.id}
+                    onUploadingChange={onUploadingChange}
                     multiple
                     accept=".pdf,.doc,.docx,.xlsx"
                     compact

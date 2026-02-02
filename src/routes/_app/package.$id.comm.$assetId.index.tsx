@@ -198,6 +198,7 @@ function RouteComponent() {
         <CommercialSetupSheet
           open={isSetupOpen}
           onOpenChange={setIsSetupOpen}
+          assetId={assetId}
           assetName={assetData.asset.name}
           boqFile={boqFile}
           onBoqFileChange={setBoqFile}
@@ -240,6 +241,7 @@ function RouteComponent() {
 function CommercialSetupSheet({
   open,
   onOpenChange,
+  assetId,
   assetName,
   boqFile,
   onBoqFileChange,
@@ -253,6 +255,7 @@ function CommercialSetupSheet({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  assetId: string
   assetName: string
   boqFile: UploadedFile[]
   onBoqFileChange: (files: UploadedFile[]) => void
@@ -264,11 +267,18 @@ function CommercialSetupSheet({
   onRunEvaluation: () => void
   isPending: boolean
 }) {
+  const [uploadingCount, setUploadingCount] = useState(0)
+
+  const handleUploadingChange = (isUploading: boolean) => {
+    setUploadingCount((prev) => prev + (isUploading ? 1 : -1))
+  }
+
   const isBoqDone = boqFile.length > 0
   const vendorsWithFiles = Object.entries(vendorFiles).filter(
     ([, files]) => files.length > 0
   ).length
-  const canRunEvaluation = vendorsWithFiles >= 2
+  const isUploading = uploadingCount > 0
+  const canRunEvaluation = vendorsWithFiles >= 2 && !isUploading
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -298,6 +308,9 @@ function CommercialSetupSheet({
             <UploadZone
               files={boqFile}
               onFilesChange={onBoqFileChange}
+              assetId={assetId}
+              category="boq"
+              onUploadingChange={handleUploadingChange}
               accept=".pdf,.xlsx,.xls"
             />
           </div>
@@ -312,6 +325,9 @@ function CommercialSetupSheet({
             <UploadZone
               files={pteFile}
               onFilesChange={onPteFileChange}
+              assetId={assetId}
+              category="pte"
+              onUploadingChange={handleUploadingChange}
               accept=".pdf,.xlsx,.xls"
             />
           </div>
@@ -362,6 +378,10 @@ function CommercialSetupSheet({
                         onFilesChange={(newFiles) =>
                           onVendorFilesChange(contractor.id, newFiles)
                         }
+                        assetId={assetId}
+                        category="vendor_proposal"
+                        contractorId={contractor.id}
+                        onUploadingChange={handleUploadingChange}
                         multiple
                         accept=".pdf,.xlsx,.xls,.doc,.docx"
                         compact
@@ -392,7 +412,11 @@ function CommercialSetupSheet({
             onClick={onRunEvaluation}
             disabled={!canRunEvaluation || isPending}
           >
-            {isPending ? "Running..." : "Run Evaluation"}
+            {isPending
+              ? "Running..."
+              : isUploading
+                ? "Uploading..."
+                : "Run Evaluation"}
           </Button>
         </SheetFooter>
       </SheetContent>

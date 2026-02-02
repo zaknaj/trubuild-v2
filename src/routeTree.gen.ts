@@ -15,6 +15,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppVendorDbRouteImport } from './routes/_app/vendor-db'
 import { Route as AppAllProjectsRouteImport } from './routes/_app/all-projects'
+import { Route as ApiWorkosCallbackRouteImport } from './routes/api/workos.callback'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppProjectIdRouteImport } from './routes/_app/project.$id'
 import { Route as AppPackageIdRouteImport } from './routes/_app/package.$id'
@@ -58,6 +59,11 @@ const AppAllProjectsRoute = AppAllProjectsRouteImport.update({
   id: '/all-projects',
   path: '/all-projects',
   getParentRoute: () => AppRoute,
+} as any)
+const ApiWorkosCallbackRoute = ApiWorkosCallbackRouteImport.update({
+  id: '/api/workos/callback',
+  path: '/api/workos/callback',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/package/$id': typeof AppPackageIdRouteWithChildren
   '/project/$id': typeof AppProjectIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/workos/callback': typeof ApiWorkosCallbackRoute
   '/package/$id/comm': typeof AppPackageIdCommRouteWithChildren
   '/package/$id/tech': typeof AppPackageIdTechRouteWithChildren
   '/package/$id/': typeof AppPackageIdIndexRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/project/$id': typeof AppProjectIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/workos/callback': typeof ApiWorkosCallbackRoute
   '/package/$id': typeof AppPackageIdIndexRoute
   '/package/$id/tech/docs': typeof AppPackageIdTechDocsRoute
   '/package/$id/tech/ptc': typeof AppPackageIdTechPtcRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/_app/package/$id': typeof AppPackageIdRouteWithChildren
   '/_app/project/$id': typeof AppProjectIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/workos/callback': typeof ApiWorkosCallbackRoute
   '/_app/package/$id/comm': typeof AppPackageIdCommRouteWithChildren
   '/_app/package/$id/tech': typeof AppPackageIdTechRouteWithChildren
   '/_app/package/$id/': typeof AppPackageIdIndexRoute
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/package/$id'
     | '/project/$id'
     | '/api/auth/$'
+    | '/api/workos/callback'
     | '/package/$id/comm'
     | '/package/$id/tech'
     | '/package/$id/'
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/'
     | '/project/$id'
     | '/api/auth/$'
+    | '/api/workos/callback'
     | '/package/$id'
     | '/package/$id/tech/docs'
     | '/package/$id/tech/ptc'
@@ -244,6 +255,7 @@ export interface FileRouteTypes {
     | '/_app/package/$id'
     | '/_app/project/$id'
     | '/api/auth/$'
+    | '/api/workos/callback'
     | '/_app/package/$id/comm'
     | '/_app/package/$id/tech'
     | '/_app/package/$id/'
@@ -262,6 +274,7 @@ export interface RootRouteChildren {
   CreateOrgRoute: typeof CreateOrgRoute
   LoginRoute: typeof LoginRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiWorkosCallbackRoute: typeof ApiWorkosCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -307,6 +320,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/all-projects'
       preLoaderRoute: typeof AppAllProjectsRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/api/workos/callback': {
+      id: '/api/workos/callback'
+      path: '/api/workos/callback'
+      fullPath: '/api/workos/callback'
+      preLoaderRoute: typeof ApiWorkosCallbackRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -494,6 +514,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreateOrgRoute: CreateOrgRoute,
   LoginRoute: LoginRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiWorkosCallbackRoute: ApiWorkosCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

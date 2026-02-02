@@ -247,10 +247,10 @@ export function PackageSidebar({
   }
 
   return (
-    <aside className="w-72 bg-white overflow-auto border-r-[0.5px] border-black/15 flex flex-col">
+    <aside className="w-72 overflow-auto flex flex-col bg-[#FCFCFC]">
       {/* Header */}
       <div
-        className="flex items-center gap-2 px-4 h-12 border-b-[0.5px] border-black/15 shrink-0"
+        className="flex items-center gap-2 px-4 h-12 shrink-0"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >

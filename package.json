@@ -14,6 +14,8 @@
     "_reset-db": "dropdb --force trubuild-v2 && createdb trubuild-v2 && bun run db:push"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.980.0",
+    "@aws-sdk/s3-request-presigner": "^3.980.0",
     "@base-ui/react": "^1.0.0",
     "@tailwindcss/vite": "^4.0.6",
     "@tanstack/react-devtools": "^0.7.0",
@@ -23,6 +25,7 @@
     "@tanstack/react-router-ssr-query": "^1.131.7",
     "@tanstack/react-start": "^1.132.0",
     "@tanstack/router-plugin": "^1.132.0",
+    "@workos-inc/node": "^8.0.0",
     "better-auth": "^1.4.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -42,6 +45,7 @@
     "react-dom": "^19.2.0",
     "react-resizable-panels": "^4.0.16",
     "recharts": "2.15.4",
+    "resend": "^6.9.1",
     "shadcn": "^3.6.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",

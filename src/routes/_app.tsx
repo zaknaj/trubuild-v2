@@ -86,11 +86,11 @@ function RouteComponent() {
         </Suspense>
       </div> */}
 
-      <div className="flex flex-1 bg-white/15 ring-inset ring-[0.5px] rounded-lg ring-white/20 shadow-[0_0_12px_0_rgba(0,0,0,.25)]">
+      <div className="flex flex-1 bg-white/15 ring-inset ring-[0.5px] rounded-xl ring-white/20 shadow-[0_0_12px_0_rgba(0,0,0,.25)]">
         <ErrorBoundary>
           <Sidebar />
         </ErrorBoundary>
-        <div className=" flex-1 flex bg-white rounded-lg overflow-hidden shadow-[-4px_0_20px_0_rgba(0,0,0,.2)]">
+        <div className=" flex-1 flex bg-white rounded-xl overflow-hidden shadow-[-4px_0_20px_0_rgba(0,0,0,.2)]">
           <div className="flex flex-col flex-1">
             <ErrorBoundary>
               <Suspense

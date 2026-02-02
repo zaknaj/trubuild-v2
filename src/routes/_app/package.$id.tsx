@@ -69,7 +69,9 @@ function RouteComponent() {
     <>
       <div className="flex flex-1 overflow-hidden h-full">
         <PackageSidebar packageId={id} onSettingsClick={openSettings} />
-        <div className="flex-1 flex flex-col overflow-hidden">{outlet}</div>
+        <div className="flex-1 flex flex-col overflow-hidden rounded-xl content-shadow">
+          {outlet}
+        </div>
       </div>
       {canEdit && (
         <PackageSettingsDialog

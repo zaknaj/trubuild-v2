@@ -95,6 +95,9 @@ export const organization = pgTable(
     logo: text("logo"),
     createdAt: timestamp("created_at").notNull(),
     metadata: text("metadata"),
+    // WorkOS SSO fields
+    workosConnectionId: text("workos_connection_id"),
+    workosOrgId: text("workos_org_id"),
   },
   (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)]
 )
