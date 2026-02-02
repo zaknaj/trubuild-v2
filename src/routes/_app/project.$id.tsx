@@ -239,7 +239,7 @@ function RouteComponent() {
         )}
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden content-shadow rounded-xl">
           {/* Header */}
           <div className="flex items-center justify-between border-b-[0.5px] border-black/15 h-12 px-6">
             <span className="text-primary font-semibold text-16">
