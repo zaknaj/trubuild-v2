@@ -250,6 +250,8 @@ function RouteComponent() {
               <UploadZone
                 files={boqFile}
                 onFilesChange={setBoqFile}
+                packageId={id}
+                category="boq"
                 accept=".pdf,.xlsx,.xls"
               />
             </div>
@@ -264,6 +266,8 @@ function RouteComponent() {
               <UploadZone
                 files={pteFile}
                 onFilesChange={setPteFile}
+                packageId={id}
+                category="pte"
                 accept=".pdf,.xlsx,.xls"
               />
             </div>
@@ -314,6 +318,9 @@ function RouteComponent() {
                           onFilesChange={(newFiles) =>
                             handleVendorFilesChange(contractor.id, newFiles)
                           }
+                          packageId={id}
+                          category="vendor_proposal"
+                          contractorId={contractor.id}
                           multiple
                           accept=".pdf,.xlsx,.xls,.doc,.docx"
                           compact
@@ -501,6 +508,7 @@ function AssetView({
       <CommercialSetupSheet
         open={isSetupOpen}
         onOpenChange={setIsSetupOpen}
+        assetId={assetId}
         assetName={assetName}
         boqFile={evalBoqFile}
         onBoqFileChange={setEvalBoqFile}
@@ -523,6 +531,7 @@ function AssetView({
 function CommercialSetupSheet({
   open,
   onOpenChange,
+  assetId,
   assetName,
   boqFile,
   onBoqFileChange,
@@ -536,6 +545,7 @@ function CommercialSetupSheet({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  assetId: string
   assetName: string
   boqFile: UploadedFile[]
   onBoqFileChange: (files: UploadedFile[]) => void
@@ -581,6 +591,8 @@ function CommercialSetupSheet({
             <UploadZone
               files={boqFile}
               onFilesChange={onBoqFileChange}
+              assetId={assetId}
+              category="boq"
               accept=".pdf,.xlsx,.xls"
             />
           </div>
@@ -595,6 +607,8 @@ function CommercialSetupSheet({
             <UploadZone
               files={pteFile}
               onFilesChange={onPteFileChange}
+              assetId={assetId}
+              category="pte"
               accept=".pdf,.xlsx,.xls"
             />
           </div>
@@ -645,6 +659,9 @@ function CommercialSetupSheet({
                         onFilesChange={(newFiles) =>
                           onVendorFilesChange(contractor.id, newFiles)
                         }
+                        assetId={assetId}
+                        category="vendor_proposal"
+                        contractorId={contractor.id}
                         multiple
                         accept=".pdf,.xlsx,.xls,.doc,.docx"
                         compact
